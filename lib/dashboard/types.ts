@@ -31,6 +31,17 @@ export type Meeting = {
   status?: string
 }
 
+export type SalesPlanMonth = {
+  period: string
+  plan: number
+}
+
+export type SalesPlan = {
+  year: number
+  annualPlan: number
+  months: SalesPlanMonth[]
+}
+
 export type DashboardSnapshot = {
   source: "snapshot" | "google-sheets"
   sourceLabel: string
@@ -40,6 +51,7 @@ export type DashboardSnapshot = {
   records: DashboardRecord[]
   opportunities: Opportunity[]
   meetings: Meeting[]
+  salesPlan: SalesPlan
 }
 
 export interface DashboardDataProvider {

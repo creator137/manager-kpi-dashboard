@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { parseGvizResponse, parseMeetingsTable, parseMonthlyTable, parseOpportunitiesTable, type GvizTable } from "./provider"
+import { parseGvizResponse, parseMeetingsTable, parseMonthlyTable, parseOpportunitiesTable, parseSalesPlanTable, type GvizTable } from "./provider"
 
 const managers = ["Алексей Ладьин", "Анастасия Маслихова", "Дарья Степанова"]
 
@@ -71,6 +71,20 @@ describe("Google Sheets normalization", () => {
       nasUrl: "https://nas.example.com/video",
       status: "Техническая встреча",
     }])
+  })
+
+  it("extracts the central block annual and monthly sales plan", () => {
+    const monthlyPlans = [13, 21, 30, 25, 37, 26, 33, 33, 36, 33, 21, 21]
+    const table: GvizTable = { rows: [
+      row({ 0: "План Производства 2026г:", 1: "Согласно плану продаж на 2026год, годовой прогноз", 14: 232 }),
+      row({ 0: "План продаж  центральный блок 2026г:", 1: "Прогноз, годовой прогноз", ...Object.fromEntries(monthlyPlans.map((value, index) => [index + 2, value])), 14: 333 }),
+    ] }
+
+    expect(parseSalesPlanTable(table)).toEqual({
+      year: 2026,
+      annualPlan: 333,
+      months: monthlyPlans.map((plan, index) => ({ period: ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"][index], plan })),
+    })
   })
 
   it("rejects malformed query responses", () => {

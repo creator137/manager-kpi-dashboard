@@ -5,6 +5,7 @@ import type {
   KpiKey,
   Meeting,
   Opportunity,
+  SalesPlan,
 } from "@/lib/dashboard/types"
 
 type GvizCell = {
@@ -183,6 +184,33 @@ export function parseMeetingsTable(table: GvizTable, managers: string[]): Meetin
   })
 }
 
+export function parseSalesPlanTable(table: GvizTable): SalesPlan {
+  const planRow = table.rows.find((row) => {
+    const section = textValue(row, 0).toLocaleLowerCase("ru-RU")
+    const label = textValue(row, 1).toLocaleLowerCase("ru-RU")
+    return section.includes("план продаж") && section.includes("центральный блок")
+      && label.includes("годовой прогноз")
+  })
+  if (!planRow) throw new Error("Sales plan row was not found")
+
+  const months = MONTHS_2026.map((period, index) => ({
+    period,
+    plan: numberValue(planRow, index + 2),
+  }))
+  if (months.some((item) => item.plan === null)) {
+    throw new Error("Sales plan contains an empty monthly value")
+  }
+
+  const annualPlan = numberValue(planRow, 14)
+  if (annualPlan === null) throw new Error("Annual sales plan was not found")
+
+  return {
+    year: 2026,
+    annualPlan,
+    months: months as SalesPlan["months"],
+  }
+}
+
 export function parseGvizResponse(body: string): GvizTable {
   const prefix = "google.visualization.Query.setResponse("
   const start = body.indexOf(prefix)
@@ -212,26 +240,28 @@ function periodsAvailableToday(date: Date) {
 export class GoogleSheetsProvider implements DashboardDataProvider {
   constructor(
     private readonly spreadsheetId: string,
+    private readonly salesPlanSpreadsheetId: string,
     private readonly revalidateSeconds = DEFAULT_REVALIDATE_SECONDS,
   ) {}
 
-  private async getTable(sheet: string) {
-    const url = new URL(`https://docs.google.com/spreadsheets/d/${this.spreadsheetId}/gviz/tq`)
+  private async getTable(spreadsheetId: string, sheet?: string) {
+    const url = new URL(`https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq`)
     url.searchParams.set("tqx", "out:json")
-    url.searchParams.set("sheet", sheet)
+    if (sheet) url.searchParams.set("sheet", sheet)
 
     const response = await fetch(url, { next: { revalidate: this.revalidateSeconds } })
-    if (!response.ok) throw new Error(`Google Sheets returned HTTP ${response.status} for ${sheet}`)
+    if (!response.ok) throw new Error(`Google Sheets returned HTTP ${response.status} for ${sheet ?? spreadsheetId}`)
     return parseGvizResponse(await response.text())
   }
 
   async getSnapshot(): Promise<DashboardSnapshot> {
     const now = new Date()
     const periods = [...periodsAvailableToday(now)]
-    const [monthlyTables, opportunitiesTable, meetingsTable] = await Promise.all([
-      Promise.all(periods.map((period) => this.getTable(`${period} 2026`))),
-      this.getTable("Высоковероятные проекты"),
-      this.getTable("Журнал встреч"),
+    const [monthlyTables, opportunitiesTable, meetingsTable, salesPlanTable] = await Promise.all([
+      Promise.all(periods.map((period) => this.getTable(this.spreadsheetId, `${period} 2026`))),
+      this.getTable(this.spreadsheetId, "Высоковероятные проекты"),
+      this.getTable(this.spreadsheetId, "Журнал встреч"),
+      this.getTable(this.salesPlanSpreadsheetId),
     ])
 
     const monthly = monthlyTables.map((table, index) => parseMonthlyTable(periods[index], table))
@@ -246,6 +276,7 @@ export class GoogleSheetsProvider implements DashboardDataProvider {
       records: monthly.flatMap((item) => item.records),
       opportunities: parseOpportunitiesTable(opportunitiesTable, managers),
       meetings: parseMeetingsTable(meetingsTable, managers),
+      salesPlan: parseSalesPlanTable(salesPlanTable),
     }
   }
 }

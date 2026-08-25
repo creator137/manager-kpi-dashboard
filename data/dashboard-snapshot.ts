@@ -65,6 +65,16 @@ export const dashboardSnapshot: DashboardSnapshot = {
   periods,
   managers,
   records,
+  salesPlan: {
+    year: 2026,
+    annualPlan: 333_322_608.4142364,
+    months: [
+      ["Январь", 13_266_409.836363636], ["Февраль", 21_016_332.78727273], ["Март", 30_696_966.066],
+      ["Апрель", 25_135_050.82], ["Май", 37_273_050.82], ["Июнь", 26_014_355.902],
+      ["Июль", 33_554_355.902], ["Август", 33_654_355.902], ["Сентябрь", 36_839_355.902],
+      ["Октябрь", 33_610_791.4922], ["Ноябрь", 21_130_791.4922], ["Декабрь", 21_130_791.4922],
+    ].map(([period, plan]) => ({ period: String(period), plan: Number(plan) })),
+  },
   opportunities: [
     { period: "Август", company: "MR Orion 3", project: "Элерон", manager: managers[1], amount: 5_000_000, sold: false },
     { period: "Август", company: "MR Group", project: "Ситизен", manager: managers[1], amount: 4_600_000, sold: false },

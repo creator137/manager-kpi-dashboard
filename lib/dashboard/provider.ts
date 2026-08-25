@@ -15,7 +15,9 @@ export async function getDashboardData() {
 
   const spreadsheetId = process.env.GOOGLE_SHEETS_SPREADSHEET_ID
     ?? "1UyVjJaVMZlufAZ4uWuQ9GvdCWb2xE-z-sTAm2dQcDX0"
-  const provider: DashboardDataProvider = new GoogleSheetsProvider(spreadsheetId)
+  const salesPlanSpreadsheetId = process.env.GOOGLE_SHEETS_SALES_PLAN_SPREADSHEET_ID
+    ?? "1XgHRGC7B0YT0pCJcBAULueZ6So82OLvu"
+  const provider: DashboardDataProvider = new GoogleSheetsProvider(spreadsheetId, salesPlanSpreadsheetId)
 
   try {
     return await provider.getSnapshot()

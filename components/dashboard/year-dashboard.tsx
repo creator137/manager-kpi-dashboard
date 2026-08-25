@@ -1,26 +1,30 @@
 "use client"
 
 import * as React from "react"
-import { ChartNoAxesCombinedIcon, MedalIcon, TargetIcon, TrophyIcon, WalletCardsIcon } from "lucide-react"
+import { ChartNoAxesCombinedIcon, ExternalLinkIcon, FileSpreadsheetIcon, MedalIcon, TargetIcon, TrophyIcon, WalletCardsIcon } from "lucide-react"
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts"
 
 import { PageHeading } from "@/components/dashboard/page-heading"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart"
 import { Progress } from "@/components/ui/progress"
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Separator } from "@/components/ui/separator"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { completion, kpiLabels, statusFor } from "@/lib/dashboard/calculate"
+import { completion, kpiLabels, salesPlanPerformance, statusFor } from "@/lib/dashboard/calculate"
 import type { DashboardSnapshot, KpiKey } from "@/lib/dashboard/types"
 
 const currencyCompact = new Intl.NumberFormat("ru-RU", { notation: "compact", maximumFractionDigits: 1 })
 const number = new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 1 })
 const percent = new Intl.NumberFormat("ru-RU", { style: "percent", maximumFractionDigits: 1 })
 const chartConfig = { plan: { label: "План", color: "var(--chart-2)" }, fact: { label: "Факт", color: "var(--chart-1)" } } satisfies ChartConfig
+const salesPlanUrl = "https://docs.google.com/spreadsheets/d/1XgHRGC7B0YT0pCJcBAULueZ6So82OLvu/edit?usp=drivesdk"
 
 export function YearDashboard({ snapshot }: { snapshot: DashboardSnapshot }) {
   const [kpi, setKpi] = React.useState<KpiKey>("revenue")
+  const planPerformance = salesPlanPerformance(snapshot)
   const ranking = snapshot.managers.map((manager) => {
     const records = snapshot.records.filter((item) => item.manager === manager && item.kpi === kpi)
     const planValues = records.map((item) => item.plan).filter((value): value is number => value !== null)
@@ -37,6 +41,7 @@ export function YearDashboard({ snapshot }: { snapshot: DashboardSnapshot }) {
   return (
     <section className="flex flex-col gap-6 px-4 py-5 lg:px-6 lg:py-6">
       <PageHeading eyebrow="Результаты 2026" title="Показатели менеджеров за год" description={`Накопительный итог по доступным данным с января по ${snapshot.periods.at(-1)?.toLocaleLowerCase("ru") ?? "текущий месяц"}.`} actions={<div className="flex min-w-0 flex-col gap-1.5"><span className="text-xs font-medium text-muted-foreground">Показатель</span><Select value={kpi} onValueChange={(value) => value && setKpi(value as KpiKey)} items={(Object.keys(kpiLabels) as KpiKey[]).map((value) => ({ value, label: kpiLabels[value] }))}><SelectTrigger className="w-full sm:w-56" aria-label="Показатель"><SelectValue /></SelectTrigger><SelectContent side="bottom" align="start" alignItemWithTrigger={false}><SelectGroup><SelectLabel>Показатель</SelectLabel>{(Object.keys(kpiLabels) as KpiKey[]).map((value) => <SelectItem key={value} value={value}>{kpiLabels[value]}</SelectItem>)}</SelectGroup></SelectContent></Select></div>} />
+      <SalesPlanOverview performance={planPerformance} year={snapshot.salesPlan.year} />
       <div className="grid grid-cols-1 gap-3 @xl/main:grid-cols-2 @5xl/main:grid-cols-4">
         <SummaryCard label="План отдела YTD" value={formatMetric(teamPlan, kpi)} detail={`${snapshot.periods.length} месяцев в расчёте`} icon={TargetIcon} />
         <SummaryCard label="Факт отдела YTD" value={formatMetric(teamFact, kpi)} detail={kpiLabels[kpi]} icon={WalletCardsIcon} />
@@ -49,6 +54,63 @@ export function YearDashboard({ snapshot }: { snapshot: DashboardSnapshot }) {
       </div>
     </section>
   )
+}
+
+function SalesPlanOverview({ performance, year }: { performance: ReturnType<typeof salesPlanPerformance>; year: number }) {
+  const { annual, quarters } = performance
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Выполнение плана продаж</CardTitle>
+        <CardDescription>Годовой и квартальные показатели центрального блока за {year} год</CardDescription>
+        <CardAction>
+          <Button variant="outline" size="sm" nativeButton={false} render={<a href={salesPlanUrl} target="_blank" rel="noreferrer" />}>
+            <FileSpreadsheetIcon data-icon="inline-start" /><span className="hidden sm:inline">План продаж</span><ExternalLinkIcon data-icon="inline-end" />
+          </Button>
+        </CardAction>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-6">
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+          <PlanMetric label="Годовой план" value={formatCurrency(annual.plan)} detail="Утверждённый прогноз продаж" icon={TargetIcon} />
+          <PlanMetric label="Накопительный факт" value={formatCurrency(annual.fact)} detail="По заполненным месяцам" icon={WalletCardsIcon} />
+          <PlanMetric label="Выполнение за год" value={annual.completion === null ? "—" : percent.format(annual.completion)} detail={annual.remaining === null ? "Нет данных" : `Осталось ${formatCurrency(annual.remaining)}`} icon={ChartNoAxesCombinedIcon} />
+        </div>
+        <Progress value={Math.min((annual.completion ?? 0) * 100, 100)} aria-label="Выполнение годового плана продаж" />
+        <Separator />
+        <div className="grid grid-cols-1 gap-6 @5xl/main:grid-cols-5">
+          <div className="@5xl/main:col-span-2">
+            <div className="mb-3 flex flex-col gap-1"><h3 className="text-sm font-semibold">План и факт по кварталам</h3><p className="text-xs text-muted-foreground">Факт текущего квартала — на дату обновления</p></div>
+            <ChartContainer config={chartConfig} className="h-64 w-full">
+              <BarChart data={quarters} margin={{ left: 4, right: 8 }}>
+                <CartesianGrid vertical={false} stroke="var(--border)" />
+                <XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={8} tickFormatter={(value) => String(value).replace(" квартал", " кв.")} tick={{ fill: "var(--muted-foreground)" }} />
+                <YAxis hide />
+                <ChartTooltip content={<ChartTooltipContent formatter={(value) => formatCurrency(Number(value))} />} />
+                <Bar dataKey="plan" fill="var(--color-plan)" radius={3} isAnimationActive={false} />
+                <Bar dataKey="fact" fill="var(--color-fact)" radius={3} isAnimationActive={false} />
+              </BarChart>
+            </ChartContainer>
+          </div>
+          <div className="overflow-x-auto @5xl/main:col-span-3">
+            <Table>
+              <TableHeader><TableRow><TableHead>Период</TableHead><TableHead className="text-right">План</TableHead><TableHead className="text-right">Факт</TableHead><TableHead className="min-w-44">Выполнение</TableHead><TableHead>Статус</TableHead></TableRow></TableHeader>
+              <TableBody>{quarters.map((quarter) => <QuarterRow key={quarter.key} quarter={quarter} />)}</TableBody>
+            </Table>
+          </div>
+        </div>
+      </CardContent>
+      <CardFooter className="text-xs text-muted-foreground">План — файл «План продаж», строка годового прогноза центрального блока. Факт — основная рабочая таблица менеджеров.</CardFooter>
+    </Card>
+  )
+}
+
+function PlanMetric({ label, value, detail, icon: Icon }: { label: string; value: string; detail: string; icon: React.ComponentType }) {
+  return <div className="flex min-w-0 items-start gap-3"><span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary"><Icon /></span><div className="min-w-0"><p className="text-sm text-muted-foreground">{label}</p><p className="text-2xl font-semibold tabular-nums">{value}</p><p className="text-xs text-muted-foreground">{detail}</p></div></div>
+}
+
+function QuarterRow({ quarter }: { quarter: ReturnType<typeof salesPlanPerformance>["quarters"][number] }) {
+  const stateLabel = quarter.state === "completed" ? "Завершён" : quarter.state === "current" ? "Текущий" : "Не начат"
+  return <TableRow><TableCell><div className="min-w-24 font-medium">{quarter.label}</div></TableCell><TableCell className="whitespace-nowrap text-right tabular-nums">{formatCurrency(quarter.plan)}</TableCell><TableCell className="whitespace-nowrap text-right tabular-nums">{formatCurrency(quarter.fact)}</TableCell><TableCell><div className="flex items-center gap-2"><Progress value={Math.min((quarter.completion ?? 0) * 100, 100)} className="w-16" /><span className="w-12 text-right text-sm tabular-nums">{quarter.completion === null ? "—" : percent.format(quarter.completion)}</span></div></TableCell><TableCell><Badge variant={quarter.state === "current" ? "default" : quarter.state === "completed" ? "secondary" : "outline"}>{stateLabel}</Badge></TableCell></TableRow>
 }
 
 function YearRow({ item, index, kpi }: { item: { manager: string; plan: number | null; fact: number | null; completion: number | null; months: number }; index: number; kpi: KpiKey }) {
@@ -64,4 +126,8 @@ function SummaryCard({ label, value, detail, icon: Icon }: { label: string; valu
 function formatMetric(value: number | null, kpi: KpiKey) {
   if (value === null) return "—"
   return kpi === "revenue" ? `${currencyCompact.format(value)} ₽` : number.format(value)
+}
+
+function formatCurrency(value: number | null) {
+  return value === null ? "—" : `${currencyCompact.format(value)} ₽`
 }
