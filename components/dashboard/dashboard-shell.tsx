@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import Image from "next/image"
+import { useTheme } from "next-themes"
 import {
   ArrowDownRightIcon,
   ArrowUpRightIcon,
@@ -13,6 +14,8 @@ import {
   GaugeIcon,
   LayoutDashboardIcon,
   MedalIcon,
+  MoonIcon,
+  SunIcon,
   TablePropertiesIcon,
   TargetIcon,
   TrendingUpIcon,
@@ -121,15 +124,17 @@ export function DashboardShell({ snapshot, scenario }: { snapshot: DashboardSnap
   return (
     <SidebarProvider style={{ "--sidebar-width": "16rem", "--header-height": "3.5rem" } as React.CSSProperties}>
       <DashboardSidebar sourceLabel={snapshot.sourceLabel} />
-      <SidebarInset className="min-w-0 bg-muted/30">
+      <SidebarInset className="min-w-0 bg-muted/30 dark:bg-background">
         <header className="sticky top-0 z-20 flex h-(--header-height) items-center border-b bg-background/95 backdrop-blur">
           <div className="flex w-full items-center gap-3 px-4 lg:px-6">
             <SidebarTrigger className="-ml-1" />
             <Separator orientation="vertical" className="h-4" />
             <div className="min-w-0 flex-1">
-              <h1 className="truncate text-sm font-semibold">Дашборд блока центральных продаж</h1>
+              <BrandLogo className="sm:hidden" width={135} height={30} />
+              <h1 className="hidden truncate text-sm font-semibold sm:block">Дашборд блока центральных продаж</h1>
               <p className="hidden text-xs text-muted-foreground sm:block">Данные на {asOf.format(new Date(snapshot.asOf))}</p>
             </div>
+            <ThemeToggle />
             <Tooltip>
               <TooltipTrigger render={<Button nativeButton={false} variant="outline" size="sm" render={<a href={sheetUrl} target="_blank" rel="noreferrer" />} />}>
                 <FileSpreadsheetIcon data-icon="inline-start" /><span className="hidden sm:inline">Открыть источник</span><ExternalLinkIcon data-icon="inline-end" />
@@ -175,8 +180,8 @@ export function DashboardShell({ snapshot, scenario }: { snapshot: DashboardSnap
                           <defs>
                             <linearGradient id="fact-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="var(--color-fact)" stopOpacity={0.25} /><stop offset="95%" stopColor="var(--color-fact)" stopOpacity={0.02} /></linearGradient>
                           </defs>
-                          <CartesianGrid vertical={false} />
-                          <XAxis dataKey="period" tickLine={false} axisLine={false} tickMargin={10} />
+                          <CartesianGrid vertical={false} stroke="var(--border)" />
+                          <XAxis dataKey="period" tickLine={false} axisLine={false} tickMargin={10} tick={{ fill: "var(--muted-foreground)" }} />
                           <YAxis hide domain={[0, "auto"]} />
                           <ChartTooltip content={<ChartTooltipContent formatter={(value) => formatMetric(Number(value), kpi)} />} />
                           <Area dataKey="plan" type="monotone" fill="transparent" stroke="var(--color-plan)" strokeDasharray="5 5" strokeWidth={2} isAnimationActive={false} />
@@ -194,9 +199,9 @@ export function DashboardShell({ snapshot, scenario }: { snapshot: DashboardSnap
                     <CardContent>
                       <ChartContainer config={chartConfig} className="h-72 w-full">
                         <BarChart data={ranked} layout="vertical" margin={{ left: 8, right: 8 }}>
-                          <CartesianGrid horizontal={false} />
+                          <CartesianGrid horizontal={false} stroke="var(--border)" />
                           <XAxis type="number" hide />
-                          <YAxis dataKey="manager" type="category" tickLine={false} axisLine={false} width={104} tickFormatter={(value) => String(value).split(" ")[0]} />
+                          <YAxis dataKey="manager" type="category" tickLine={false} axisLine={false} width={104} tick={{ fill: "var(--muted-foreground)" }} tickFormatter={(value) => String(value).split(" ")[0]} />
                           <ChartTooltip content={<ChartTooltipContent formatter={(value) => formatMetric(Number(value), kpi)} />} />
                           <Bar dataKey="plan" fill="var(--color-plan)" radius={3} barSize={9} isAnimationActive={false} />
                           <Bar dataKey="fact" fill="var(--color-fact)" radius={3} barSize={9} isAnimationActive={false} />
@@ -238,7 +243,7 @@ function DashboardSidebar({ sourceLabel }: { sourceLabel: string }) {
   return (
     <Sidebar collapsible="offcanvas">
       <SidebarHeader className="border-b border-sidebar-border px-5 py-5">
-        <SidebarMenu><SidebarMenuItem><SidebarMenuButton size="lg" className="h-auto px-0 hover:bg-transparent active:bg-transparent" render={<a href="#overview" aria-label="Virtual Land — KPI dashboard" />}><span className="flex flex-col items-start gap-2"><Image src="/virtual-land-logo.svg" alt="Virtual Land" width={162} height={36} priority /><span className="text-[11px] font-medium text-sidebar-foreground/55">KPI dashboard отдела продаж</span></span></SidebarMenuButton></SidebarMenuItem></SidebarMenu>
+        <SidebarMenu><SidebarMenuItem><SidebarMenuButton size="lg" className="h-auto px-0 hover:bg-transparent active:bg-transparent" render={<a href="#overview" aria-label="Virtual Land — KPI dashboard" />}><span className="flex flex-col items-start gap-2"><BrandLogo width={162} height={36} priority /><span className="text-[11px] font-medium text-sidebar-foreground/55">KPI dashboard отдела продаж</span></span></SidebarMenuButton></SidebarMenuItem></SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup><SidebarGroupLabel>Аналитика</SidebarGroupLabel><SidebarGroupContent><SidebarMenu>{nav.map((item, index) => <SidebarMenuItem key={item.title}><SidebarMenuButton isActive={index === 0} tooltip={item.title} render={<a href={item.href} />}><item.icon /><span>{item.title}</span></SidebarMenuButton></SidebarMenuItem>)}</SidebarMenu></SidebarGroupContent></SidebarGroup>
@@ -246,6 +251,24 @@ function DashboardSidebar({ sourceLabel }: { sourceLabel: string }) {
       </SidebarContent>
       <SidebarFooter className="p-4"><div className="flex items-center gap-2 text-xs text-sidebar-foreground/65"><span className="size-2 rounded-full bg-chart-1" /><span className="truncate">{sourceLabel}</span></div></SidebarFooter>
     </Sidebar>
+  )
+}
+
+function BrandLogo({ className, width, height, priority = false }: { className?: string; width: number; height: number; priority?: boolean }) {
+  return <span className={`inline-flex shrink-0 ${className ?? ""}`} style={{ width, height }}><Image src="/virtual-land-logo.svg" alt="Virtual Land" width={width} height={height} priority={priority} className="dark:hidden" /><Image src="/virtual-land-logo-dark.svg" alt="Virtual Land" width={width} height={height} priority={priority} className="hidden dark:block" /></span>
+}
+
+function ThemeToggle() {
+  const { setTheme } = useTheme()
+
+  return (
+    <Tooltip>
+      <TooltipTrigger render={<Button variant="outline" size="icon-sm" aria-label="Переключить цветовую тему" onClick={() => setTheme(document.documentElement.classList.contains("dark") ? "light" : "dark")} />}>
+        <MoonIcon className="dark:hidden" />
+        <SunIcon className="hidden dark:block" />
+      </TooltipTrigger>
+      <TooltipContent>Переключить тему</TooltipContent>
+    </Tooltip>
   )
 }
 
