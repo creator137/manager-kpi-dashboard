@@ -1,10 +1,10 @@
 "use client"
 
 import * as React from "react"
+import Image from "next/image"
 import {
   ArrowDownRightIcon,
   ArrowUpRightIcon,
-  BarChart3Icon,
   BriefcaseBusinessIcon,
   ChartNoAxesCombinedIcon,
   CircleAlertIcon,
@@ -237,8 +237,8 @@ export function DashboardShell({ snapshot, scenario }: { snapshot: DashboardSnap
 function DashboardSidebar({ sourceLabel }: { sourceLabel: string }) {
   return (
     <Sidebar collapsible="offcanvas">
-      <SidebarHeader className="p-4">
-        <SidebarMenu><SidebarMenuItem><SidebarMenuButton size="lg" render={<a href="#overview" />}><span className="flex size-8 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground"><BarChart3Icon /></span><span className="grid text-left"><span className="font-semibold">Central Sales</span><span className="text-xs text-sidebar-foreground/65">KPI dashboard</span></span></SidebarMenuButton></SidebarMenuItem></SidebarMenu>
+      <SidebarHeader className="border-b border-sidebar-border px-5 py-5">
+        <SidebarMenu><SidebarMenuItem><SidebarMenuButton size="lg" className="h-auto px-0 hover:bg-transparent active:bg-transparent" render={<a href="#overview" aria-label="Virtual Land — KPI dashboard" />}><span className="flex flex-col items-start gap-2"><Image src="/virtual-land-logo.svg" alt="Virtual Land" width={162} height={36} priority /><span className="text-[11px] font-medium text-sidebar-foreground/55">KPI dashboard отдела продаж</span></span></SidebarMenuButton></SidebarMenuItem></SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup><SidebarGroupLabel>Аналитика</SidebarGroupLabel><SidebarGroupContent><SidebarMenu>{nav.map((item, index) => <SidebarMenuItem key={item.title}><SidebarMenuButton isActive={index === 0} tooltip={item.title} render={<a href={item.href} />}><item.icon /><span>{item.title}</span></SidebarMenuButton></SidebarMenuItem>)}</SidebarMenu></SidebarGroupContent></SidebarGroup>
@@ -254,7 +254,7 @@ function FilterSelect({ label, value, onChange, options }: { label: string; valu
 }
 
 function MetricCard({ label, value, detail, icon: Icon, progress, trend: delta }: { label: string; value: string; detail: string; icon: React.ComponentType; progress?: number | null; trend?: number | null }) {
-  return <Card className="@container/card"><CardHeader><CardDescription>{label}</CardDescription><CardTitle className="text-2xl font-semibold tabular-nums @min-[250px]/card:text-3xl">{value}</CardTitle><CardAction><span className="flex size-8 items-center justify-center rounded-md bg-muted text-muted-foreground"><Icon /></span></CardAction></CardHeader><CardFooter className="flex-col items-start gap-2 text-sm">{progress !== undefined && <Progress value={Math.min((progress ?? 0) * 100, 100)} className="w-full" />}<div className="flex items-center gap-1.5 text-muted-foreground">{delta !== undefined && delta !== null && (delta < 0 ? <ArrowDownRightIcon /> : <ArrowUpRightIcon />)}<span className="line-clamp-1">{detail}</span></div></CardFooter></Card>
+  return <Card className="@container/card"><CardHeader><CardDescription>{label}</CardDescription><CardTitle className="text-2xl font-semibold tabular-nums @min-[250px]/card:text-3xl">{value}</CardTitle><CardAction><span className="flex size-8 items-center justify-center rounded-md bg-primary/10 text-primary"><Icon /></span></CardAction></CardHeader><CardFooter className="flex-col items-start gap-2 text-sm">{progress !== undefined && <Progress value={Math.min((progress ?? 0) * 100, 100)} className="w-full" />}<div className="flex items-center gap-1.5 text-muted-foreground">{delta !== undefined && delta !== null && (delta < 0 ? <ArrowDownRightIcon /> : <ArrowUpRightIcon />)}<span className="line-clamp-1">{detail}</span></div></CardFooter></Card>
 }
 
 function RankingRow({ item, kpi }: { item: { manager: string; plan: number | null; fact: number | null; completion: number | null }; kpi: KpiKey }) {
