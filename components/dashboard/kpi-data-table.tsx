@@ -8,6 +8,9 @@ import {
   FlexRender,
   rowPaginationFeature,
   rowSortingFeature,
+  sortFn_alphanumeric,
+  sortFn_datetime,
+  sortFn_text,
   tableFeatures,
   useTable,
   type SortingState,
@@ -28,6 +31,7 @@ const features = tableFeatures({
   rowSortingFeature,
   paginatedRowModel: createPaginatedRowModel(),
   sortedRowModel: createSortedRowModel(),
+  sortFns: { alphanumeric: sortFn_alphanumeric, datetime: sortFn_datetime, text: sortFn_text },
 })
 
 const columnHelper = createColumnHelper<typeof features, DashboardRecord>()

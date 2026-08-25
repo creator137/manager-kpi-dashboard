@@ -9,6 +9,9 @@ import {
   FlexRender,
   rowPaginationFeature,
   rowSortingFeature,
+  sortFn_alphanumeric,
+  sortFn_datetime,
+  sortFn_text,
   tableFeatures,
   useTable,
   type SortingState,
@@ -65,7 +68,7 @@ function SummaryCard({ label, value, detail, icon: Icon }: { label: string; valu
   return <Card><CardHeader><CardDescription>{label}</CardDescription><CardTitle className="text-2xl font-semibold tabular-nums">{value}</CardTitle><CardAction><span className="flex size-8 items-center justify-center rounded-md bg-primary/10 text-primary"><Icon /></span></CardAction></CardHeader><CardFooter className="text-sm text-muted-foreground">{detail}</CardFooter></Card>
 }
 
-const features = tableFeatures({ rowPaginationFeature, rowSortingFeature, paginatedRowModel: createPaginatedRowModel(), sortedRowModel: createSortedRowModel() })
+const features = tableFeatures({ rowPaginationFeature, rowSortingFeature, paginatedRowModel: createPaginatedRowModel(), sortedRowModel: createSortedRowModel(), sortFns: { alphanumeric: sortFn_alphanumeric, datetime: sortFn_datetime, text: sortFn_text } })
 const columnHelper = createColumnHelper<typeof features, Meeting>()
 const columns = columnHelper.columns([
   columnHelper.accessor("date", { header: ({ column }) => <SortButton label="Дата" onClick={() => column.toggleSorting()} />, cell: ({ row }) => <div className="whitespace-nowrap"><div className="font-medium">{row.original.dateLabel}</div><div className="text-xs text-muted-foreground">{row.original.time || "Время не указано"}</div></div> }),
