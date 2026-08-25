@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "skills": {
+    "add-backend": {
+      "source": "ahpxex/open-dashboard",
+      "sourceType": "github",
+      "skillPath": ".claude/skills/add-backend/SKILL.md",
+      "computedHash": "0f757ebb42d79f523e5c74242c71bbda16ab9f881593bfe4ca4a1d70f5e9392d"
+    },
+    "add-component": {
+      "source": "ahpxex/open-dashboard",
+      "sourceType": "github",
+      "skillPath": ".claude/skills/add-component/SKILL.md",
+      "computedHash": "0afb4e59d7b819fae2c4b614a0724bb70c4fac7cea94e0ad1987ae40b2984bc4"
+    },
+    "rebrand": {
+      "source": "ahpxex/open-dashboard",
+      "sourceType": "github",
+      "skillPath": ".claude/skills/rebrand/SKILL.md",
+      "computedHash": "7fe8288c1f624aef5d4a3d86e296876c670926130cff70ab78a2ad4c3052332d"
+    },
+    "scaffold-dashboard": {
+      "source": "ahpxex/open-dashboard",
+      "sourceType": "github",
+      "skillPath": ".claude/skills/scaffold-dashboard/SKILL.md",
+      "computedHash": "e3e6bfcbdfe3be9b1050030973b6a54990134a69628ccaf5061f4a635530ca48"
+    },
+    "shadcn": {
+      "source": "shadcn-ui/ui",
+      "sourceType": "github",
+      "skillPath": "skills/shadcn/SKILL.md",
+      "computedHash": "c1a68ee06a668aced9ab2b5fbdea5f989864123794eb2e056b339a072dbb7f10"
+    }
+  }
+}
