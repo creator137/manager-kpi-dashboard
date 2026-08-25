@@ -3,6 +3,7 @@ import type {
   DashboardRecord,
   DashboardSnapshot,
   KpiKey,
+  Meeting,
   Opportunity,
 } from "@/lib/dashboard/types"
 
@@ -45,6 +46,11 @@ function cellValue(row: GvizTable["rows"][number], column: number) {
 function textValue(row: GvizTable["rows"][number], column: number) {
   const value = cellValue(row, column)
   return typeof value === "string" ? value.trim() : ""
+}
+
+function formattedTextValue(row: GvizTable["rows"][number], column: number) {
+  const formatted = row.c?.[column]?.f
+  return typeof formatted === "string" ? formatted.trim() : textValue(row, column)
 }
 
 function numberValue(row: GvizTable["rows"][number], column: number) {
@@ -111,24 +117,68 @@ function resolveManager(alias: string, managers: string[]) {
 export function parseOpportunitiesTable(
   table: GvizTable,
   managers: string[],
-  currentPeriod: string,
 ): Opportunity[] {
-  const markerIndex = table.rows.findIndex((row) => textValue(row, 0) === currentPeriod)
-  if (markerIndex < 0) return []
+  let period = ""
 
-  return table.rows.slice(markerIndex + 1).flatMap((row) => {
+  return table.rows.flatMap((row) => {
     const company = textValue(row, 0)
+    if (MONTHS_2026.includes(company as (typeof MONTHS_2026)[number])) {
+      period = company
+      return []
+    }
+
     const managerAlias = textValue(row, 2)
-    if (!company || !managerAlias) return []
+    if (!period || !company || !managerAlias) return []
 
     const notes = [textValue(row, 6), textValue(row, 7)].filter(Boolean)
     return [{
+      period,
       company,
       project: textValue(row, 1) || "Без названия проекта",
       manager: resolveManager(managerAlias, managers),
       amount: numberValue(row, 4) ?? 0,
       sold: cellValue(row, 5) === true,
+      dealUrl: textValue(row, 3) || undefined,
       note: notes.length ? notes.join(" · ") : undefined,
+    }]
+  })
+}
+
+function meetingDate(row: GvizTable["rows"][number]) {
+  const raw = textValue(row, 2)
+  const match = /^Date\((\d{4}),(\d{1,2}),(\d{1,2})\)$/.exec(raw)
+  if (!match) return ""
+  return `${match[1]}-${String(Number(match[2]) + 1).padStart(2, "0")}-${match[3].padStart(2, "0")}`
+}
+
+function meetingManager(alias: string, managers: string[]) {
+  const normalized = alias.toLocaleLowerCase("ru-RU")
+  return managers.find((manager) => manager.split(/\s+/).some((part) =>
+    part.toLocaleLowerCase("ru-RU").startsWith(normalized),
+  )) ?? alias
+}
+
+function urlsFrom(value: string) {
+  return value.match(/https?:\/\/[^\s]+/g) ?? []
+}
+
+export function parseMeetingsTable(table: GvizTable, managers: string[]): Meeting[] {
+  return table.rows.flatMap((row) => {
+    const managerAlias = textValue(row, 1)
+    const company = textValue(row, 4)
+    const date = meetingDate(row)
+    if (!managerAlias || !company || !date) return []
+
+    return [{
+      manager: meetingManager(managerAlias, managers),
+      date,
+      dateLabel: formattedTextValue(row, 2),
+      time: textValue(row, 3),
+      company,
+      project: textValue(row, 5) || "Без названия проекта",
+      dealUrls: urlsFrom(textValue(row, 6)),
+      nasUrl: urlsFrom(textValue(row, 7))[0],
+      status: textValue(row, 8) || undefined,
     }]
   })
 }
@@ -178,9 +228,10 @@ export class GoogleSheetsProvider implements DashboardDataProvider {
   async getSnapshot(): Promise<DashboardSnapshot> {
     const now = new Date()
     const periods = [...periodsAvailableToday(now)]
-    const [monthlyTables, opportunitiesTable] = await Promise.all([
+    const [monthlyTables, opportunitiesTable, meetingsTable] = await Promise.all([
       Promise.all(periods.map((period) => this.getTable(`${period} 2026`))),
       this.getTable("Высоковероятные проекты"),
+      this.getTable("Журнал встреч"),
     ])
 
     const monthly = monthlyTables.map((table, index) => parseMonthlyTable(periods[index], table))
@@ -193,7 +244,8 @@ export class GoogleSheetsProvider implements DashboardDataProvider {
       periods,
       managers,
       records: monthly.flatMap((item) => item.records),
-      opportunities: parseOpportunitiesTable(opportunitiesTable, managers, periods.at(-1) ?? ""),
+      opportunities: parseOpportunitiesTable(opportunitiesTable, managers),
+      meetings: parseMeetingsTable(meetingsTable, managers),
     }
   }
 }

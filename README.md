@@ -1,6 +1,13 @@
 # Manager KPI Dashboard
 
-Read-only PoC управленческого dashboard поверх существующей Google Sheets.
+Read-only PoC управленческого dashboard поверх существующей Google Sheets с закрытым доступом для руководителей.
+
+## Разделы
+
+- `/` — месячный обзор KPI;
+- `/projects` — высоковероятные проекты текущего и следующего месяца;
+- `/meetings` — журнал встреч со ссылками на сделки и NAS;
+- `/managers` — накопительные показатели и лидер года.
 
 ## Запуск
 
@@ -10,6 +17,8 @@ Read-only PoC управленческого dashboard поверх сущест
 npm install
 npm run dev
 ```
+
+Перед запуском задайте переменные из `.env.example`. Для авторизации обязательны `DASHBOARD_USERNAME`, `DASHBOARD_PASSWORD` и `DASHBOARD_SESSION_SECRET` длиной не менее 32 символов. Реальные значения не должны попадать в Git.
 
 Откройте `http://localhost:3000`.
 

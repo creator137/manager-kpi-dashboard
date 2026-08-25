@@ -1,83 +1,40 @@
 "use client"
 
 import * as React from "react"
-import Image from "next/image"
-import { useTheme } from "next-themes"
 import {
   ArrowDownRightIcon,
   ArrowUpRightIcon,
-  BriefcaseBusinessIcon,
-  ChartNoAxesCombinedIcon,
   CircleAlertIcon,
-  ExternalLinkIcon,
-  FileSpreadsheetIcon,
   GaugeIcon,
-  LayoutDashboardIcon,
   MedalIcon,
-  MoonIcon,
-  SunIcon,
   TablePropertiesIcon,
   TargetIcon,
   TrendingUpIcon,
-  UsersIcon,
 } from "lucide-react"
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts"
 
 import { KpiDataTable } from "@/components/dashboard/kpi-data-table"
 import { DashboardLoading } from "@/components/dashboard/dashboard-loading"
+import { DashboardFrame } from "@/components/dashboard/dashboard-frame"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart"
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
 import { Progress } from "@/components/ui/progress"
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Separator } from "@/components/ui/separator"
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarFooter,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarHeader,
-  SidebarInset,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarProvider,
-  SidebarTrigger,
-} from "@/components/ui/sidebar"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { completion, kpiLabels, previousPeriod, selectRecords, statusFor, summarize, trend } from "@/lib/dashboard/calculate"
 import type { DashboardSnapshot, KpiKey } from "@/lib/dashboard/types"
 
-const sheetUrl = "https://docs.google.com/spreadsheets/d/1UyVjJaVMZlufAZ4uWuQ9GvdCWb2xE-z-sTAm2dQcDX0/edit?usp=drivesdk"
 const compact = new Intl.NumberFormat("ru-RU", { notation: "compact", maximumFractionDigits: 1 })
 const number = new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 1 })
 const percent = new Intl.NumberFormat("ru-RU", { style: "percent", maximumFractionDigits: 1 })
-const asOf = new Intl.DateTimeFormat("ru-RU", {
-  day: "numeric",
-  month: "long",
-  year: "numeric",
-  hour: "2-digit",
-  minute: "2-digit",
-  timeZone: "Asia/Yekaterinburg",
-})
 
 const chartConfig = {
   plan: { label: "План", color: "var(--chart-2)" },
   fact: { label: "Факт", color: "var(--chart-1)" },
 } satisfies ChartConfig
-
-const nav = [
-  { title: "Обзор", href: "#overview", icon: LayoutDashboardIcon },
-  { title: "Динамика", href: "#dynamics", icon: ChartNoAxesCombinedIcon },
-  { title: "Менеджеры", href: "#managers", icon: UsersIcon },
-  { title: "Детализация", href: "#details", icon: TablePropertiesIcon },
-]
 
 export function DashboardShell({ snapshot, scenario }: { snapshot: DashboardSnapshot; scenario?: string }) {
   const [period, setPeriod] = React.useState(snapshot.periods.at(-1) ?? "")
@@ -122,29 +79,7 @@ export function DashboardShell({ snapshot, scenario }: { snapshot: DashboardSnap
   }
 
   return (
-    <SidebarProvider style={{ "--sidebar-width": "16rem", "--header-height": "3.5rem" } as React.CSSProperties}>
-      <DashboardSidebar sourceLabel={snapshot.sourceLabel} />
-      <SidebarInset className="min-w-0 bg-muted/30 dark:bg-background">
-        <header className="sticky top-0 z-20 flex h-(--header-height) items-center border-b bg-background/95 backdrop-blur">
-          <div className="flex w-full items-center gap-3 px-4 lg:px-6">
-            <SidebarTrigger className="-ml-1" />
-            <Separator orientation="vertical" className="h-4" />
-            <div className="min-w-0 flex-1">
-              <BrandLogo className="sm:hidden" width={135} height={30} />
-              <h1 className="hidden truncate text-sm font-semibold sm:block">Дашборд блока центральных продаж</h1>
-              <p className="hidden text-xs text-muted-foreground sm:block">Данные на {asOf.format(new Date(snapshot.asOf))}</p>
-            </div>
-            <ThemeToggle />
-            <Tooltip>
-              <TooltipTrigger render={<Button nativeButton={false} variant="outline" size="sm" render={<a href={sheetUrl} target="_blank" rel="noreferrer" />} />}>
-                <FileSpreadsheetIcon data-icon="inline-start" /><span className="hidden sm:inline">Открыть источник</span><ExternalLinkIcon data-icon="inline-end" />
-              </TooltipTrigger>
-              <TooltipContent>Google Sheets откроется в новой вкладке</TooltipContent>
-            </Tooltip>
-          </div>
-        </header>
-
-        <main className="@container/main flex flex-1 flex-col">
+    <DashboardFrame sourceLabel={snapshot.sourceLabel} asOf={snapshot.asOf}>
           <section id="overview" className="flex flex-col gap-6 px-4 py-5 lg:px-6 lg:py-6">
             <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
               <div className="flex flex-col gap-1">
@@ -233,42 +168,7 @@ export function DashboardShell({ snapshot, scenario }: { snapshot: DashboardSnap
               </>
             )}
           </section>
-        </main>
-      </SidebarInset>
-    </SidebarProvider>
-  )
-}
-
-function DashboardSidebar({ sourceLabel }: { sourceLabel: string }) {
-  return (
-    <Sidebar collapsible="offcanvas">
-      <SidebarHeader className="border-b border-sidebar-border px-5 py-5">
-        <SidebarMenu><SidebarMenuItem><SidebarMenuButton size="lg" className="h-auto px-0 hover:bg-transparent active:bg-transparent" render={<a href="#overview" aria-label="Virtual Land — KPI dashboard" />}><span className="flex flex-col items-start gap-2"><BrandLogo width={162} height={36} priority /><span className="text-[11px] font-medium text-sidebar-foreground/55">KPI dashboard отдела продаж</span></span></SidebarMenuButton></SidebarMenuItem></SidebarMenu>
-      </SidebarHeader>
-      <SidebarContent>
-        <SidebarGroup><SidebarGroupLabel>Аналитика</SidebarGroupLabel><SidebarGroupContent><SidebarMenu>{nav.map((item, index) => <SidebarMenuItem key={item.title}><SidebarMenuButton isActive={index === 0} tooltip={item.title} render={<a href={item.href} />}><item.icon /><span>{item.title}</span></SidebarMenuButton></SidebarMenuItem>)}</SidebarMenu></SidebarGroupContent></SidebarGroup>
-        <SidebarGroup><SidebarGroupLabel>Источник</SidebarGroupLabel><SidebarGroupContent><SidebarMenu><SidebarMenuItem><SidebarMenuButton tooltip="Google Sheets" render={<a href={sheetUrl} target="_blank" rel="noreferrer" />}><FileSpreadsheetIcon /><span>Рабочая таблица</span></SidebarMenuButton></SidebarMenuItem><SidebarMenuItem><SidebarMenuButton tooltip="Высоковероятные проекты" render={<a href="#details" />}><BriefcaseBusinessIcon /><span>Проекты</span></SidebarMenuButton></SidebarMenuItem></SidebarMenu></SidebarGroupContent></SidebarGroup>
-      </SidebarContent>
-      <SidebarFooter className="p-4"><div className="flex items-center gap-2 text-xs text-sidebar-foreground/65"><span className="size-2 rounded-full bg-chart-1" /><span className="truncate">{sourceLabel}</span></div></SidebarFooter>
-    </Sidebar>
-  )
-}
-
-function BrandLogo({ className, width, height, priority = false }: { className?: string; width: number; height: number; priority?: boolean }) {
-  return <span className={`inline-flex shrink-0 ${className ?? ""}`} style={{ width, height }}><Image src="/virtual-land-logo.svg" alt="Virtual Land" width={width} height={height} priority={priority} className="dark:hidden" /><Image src="/virtual-land-logo-dark.svg" alt="Virtual Land" width={width} height={height} priority={priority} className="hidden dark:block" /></span>
-}
-
-function ThemeToggle() {
-  const { setTheme } = useTheme()
-
-  return (
-    <Tooltip>
-      <TooltipTrigger render={<Button variant="outline" size="icon-sm" aria-label="Переключить цветовую тему" onClick={() => setTheme(document.documentElement.classList.contains("dark") ? "light" : "dark")} />}>
-        <MoonIcon className="dark:hidden" />
-        <SunIcon className="hidden dark:block" />
-      </TooltipTrigger>
-      <TooltipContent>Переключить тему</TooltipContent>
-    </Tooltip>
+    </DashboardFrame>
   )
 }
 

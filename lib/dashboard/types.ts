@@ -9,12 +9,26 @@ export type DashboardRecord = {
 }
 
 export type Opportunity = {
+  period: string
   company: string
   project: string
   manager: string
   amount: number
   sold: boolean
+  dealUrl?: string
   note?: string
+}
+
+export type Meeting = {
+  manager: string
+  date: string
+  dateLabel: string
+  time: string
+  company: string
+  project: string
+  dealUrls: string[]
+  nasUrl?: string
+  status?: string
 }
 
 export type DashboardSnapshot = {
@@ -25,6 +39,7 @@ export type DashboardSnapshot = {
   managers: string[]
   records: DashboardRecord[]
   opportunities: Opportunity[]
+  meetings: Meeting[]
 }
 
 export interface DashboardDataProvider {

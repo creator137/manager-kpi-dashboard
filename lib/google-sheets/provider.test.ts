@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest"
 
-import { parseGvizResponse, parseMonthlyTable, parseOpportunitiesTable, type GvizTable } from "./provider"
+import { parseGvizResponse, parseMeetingsTable, parseMonthlyTable, parseOpportunitiesTable, type GvizTable } from "./provider"
 
 const managers = ["Алексей Ладьин", "Анастасия Маслихова", "Дарья Степанова"]
 
 function row(values: Record<number, unknown>) {
-  const cells = Array.from({ length: Math.max(...Object.keys(values).map(Number)) + 1 }, () => null) as Array<{ v: unknown } | null>
+  const cells = Array.from({ length: Math.max(...Object.keys(values).map(Number)) + 1 }, () => null) as Array<{ v: unknown; f?: string } | null>
   for (const [column, value] of Object.entries(values)) cells[Number(column)] = { v: value }
   return { c: cells }
 }
@@ -32,7 +32,7 @@ describe("Google Sheets normalization", () => {
     expect(result.records).toContainEqual({ period: "Июль", manager: managers[0], kpi: "salesCount", plan: 5, fact: 1 })
   })
 
-  it("keeps only the current opportunity section and expands manager aliases", () => {
+  it("keeps opportunity month sections and expands manager aliases", () => {
     const table: GvizTable = { rows: [
       row({ 0: "Июль" }),
       row({ 0: "Old", 1: "Old project", 2: "Алексей Л", 4: 1, 5: false }),
@@ -40,13 +40,36 @@ describe("Google Sheets normalization", () => {
       row({ 0: "MR Group", 1: "Ситизен", 2: "Анастасия М", 4: 4_600_000, 5: false, 6: "тендер" }),
     ] }
 
-    expect(parseOpportunitiesTable(table, managers, "Август")).toEqual([{
-      company: "MR Group",
-      project: "Ситизен",
+    expect(parseOpportunitiesTable(table, managers)).toEqual([
+      { period: "Июль", company: "Old", project: "Old project", manager: "Алексей Ладьин", amount: 1, sold: false },
+      { period: "Август", company: "MR Group", project: "Ситизен", manager: "Анастасия Маслихова", amount: 4_600_000, sold: false, note: "тендер" },
+    ])
+  })
+
+  it("normalizes meeting dates, managers and multiple deal links", () => {
+    const meetingRow = row({
+      1: "Маслихова",
+      2: "Date(2026,7,21)",
+      3: "11.00",
+      4: "MR Group",
+      5: "VEER & SET",
+      6: "https://example.com/deal/1 https://example.com/deal/2",
+      7: "https://nas.example.com/video",
+      8: "Техническая встреча",
+    })
+    meetingRow.c[2] = { v: "Date(2026,7,21)", f: "21.08.2026" }
+    const result = parseMeetingsTable({ rows: [meetingRow] }, managers)
+
+    expect(result).toEqual([{
       manager: "Анастасия Маслихова",
-      amount: 4_600_000,
-      sold: false,
-      note: "тендер",
+      date: "2026-08-21",
+      dateLabel: "21.08.2026",
+      time: "11.00",
+      company: "MR Group",
+      project: "VEER & SET",
+      dealUrls: ["https://example.com/deal/1", "https://example.com/deal/2"],
+      nasUrl: "https://nas.example.com/video",
+      status: "Техническая встреча",
     }])
   })
 
