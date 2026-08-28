@@ -6,6 +6,7 @@ import type {
   Meeting,
   Opportunity,
   SalesPlan,
+  SalesStatistics,
 } from "@/lib/dashboard/types"
 
 type GvizCell = {
@@ -211,6 +212,63 @@ export function parseSalesPlanTable(table: GvizTable): SalesPlan {
   }
 }
 
+const SALES_STATISTICS_MONTH_COLUMNS = [
+  ["Январь", 15],
+  ["Февраль", 16],
+  ["Март", 17],
+  ["Апрель", 18],
+  ["Май", 19],
+  ["Июнь", 20],
+  ["Июль", 26],
+  ["Август", 31],
+] as const
+
+export function parseSalesStatisticsTable(table: GvizTable): SalesStatistics {
+  const rowsByLabel = new Map<string, GvizTable["rows"][number]>()
+  for (const row of table.rows) {
+    const label = textValue(row, 1).toLocaleLowerCase("ru-RU").replace(/\s+/g, " ")
+    if (label && !rowsByLabel.has(label)) rowsByLabel.set(label, row)
+  }
+  const value = (label: string, column: number) => numberValue(rowsByLabel.get(label) ?? { c: [] }, column)
+
+  const labels = {
+    salesPlan: "план продаж, руб",
+    salesForecast: "ежемесячный прогноз продаж",
+    salesFact: "факт продаж, руб",
+    assignedMeetingsPlan: "план назначено встреч",
+    assignedMeetingsFact: "факт назначено встреч для мероприятий",
+    demoSvlPlan: "план проведено встреч с показом демо svl",
+    demoSvlFact: "факт проведено встреч с показом демо svl",
+    demoCopPlan: "план проведено встреч с показом демо цоп",
+    demoCopFact: "факт проведено встреч с показом демо цоп",
+    qualifiedLeads: "новые квалифицированные лиды, шт",
+    newClientMeetings: "кол-во встреч по воронке \"новые клиенты\", шт.",
+    newClientSales: "кол-во продаж по воронке \"новые клиенты\", шт",
+    activeClientMeetings: "кол-во встреч по воронке \"активные клиенты\"",
+    activeClientSales: "кол-во продаж по воронке \"активные клиенты\", шт",
+    inactiveClientMeetings: "кол-во встреч по воронке \"неактивные клиенты\", шт",
+    inactiveClientSales: "кол-во продаж по воронке \"неактивные клиенты \", шт",
+    svlSold: "кол-во проданных svl, шт",
+    svlAverageCheck: "средний чек svl, р",
+    copSold: "кол-во проданных цоп, шт",
+    copAverageCheck: "средний чек цоп, р",
+    svlUpsells: "кол-во допродажи svl шт",
+    svlUpsellAverageCheck: "средний чек допродажи svl, р",
+    proposals: "количество кп",
+  } as const
+
+  const months = SALES_STATISTICS_MONTH_COLUMNS.map(([period, column]) => ({
+    period,
+    ...Object.fromEntries(Object.entries(labels).map(([key, label]) => [key, value(label, column)])),
+  })) as SalesStatistics["months"]
+
+  if (!months.some((month) => month.salesFact !== null)) {
+    throw new Error("Sales statistics block does not contain monthly facts")
+  }
+
+  return { year: 2026, months }
+}
+
 export function parseGvizResponse(body: string): GvizTable {
   const prefix = "google.visualization.Query.setResponse("
   const start = body.indexOf(prefix)
@@ -241,6 +299,7 @@ export class GoogleSheetsProvider implements DashboardDataProvider {
   constructor(
     private readonly spreadsheetId: string,
     private readonly salesPlanSpreadsheetId: string,
+    private readonly salesStatisticsSpreadsheetId: string,
     private readonly revalidateSeconds = DEFAULT_REVALIDATE_SECONDS,
   ) {}
 
@@ -257,11 +316,12 @@ export class GoogleSheetsProvider implements DashboardDataProvider {
   async getSnapshot(): Promise<DashboardSnapshot> {
     const now = new Date()
     const periods = [...periodsAvailableToday(now)]
-    const [monthlyTables, opportunitiesTable, meetingsTable, salesPlanTable] = await Promise.all([
+    const [monthlyTables, opportunitiesTable, meetingsTable, salesPlanTable, salesStatisticsTable] = await Promise.all([
       Promise.all(periods.map((period) => this.getTable(this.spreadsheetId, `${period} 2026`))),
       this.getTable(this.spreadsheetId, "Высоковероятные проекты"),
       this.getTable(this.spreadsheetId, "Журнал встреч"),
       this.getTable(this.salesPlanSpreadsheetId),
+      this.getTable(this.salesStatisticsSpreadsheetId, "Блок продаж"),
     ])
 
     const monthly = monthlyTables.map((table, index) => parseMonthlyTable(periods[index], table))
@@ -277,6 +337,7 @@ export class GoogleSheetsProvider implements DashboardDataProvider {
       opportunities: parseOpportunitiesTable(opportunitiesTable, managers),
       meetings: parseMeetingsTable(meetingsTable, managers),
       salesPlan: parseSalesPlanTable(salesPlanTable),
+      salesStatistics: parseSalesStatisticsTable(salesStatisticsTable),
     }
   }
 }

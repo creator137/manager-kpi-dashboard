@@ -42,6 +42,38 @@ export type SalesPlan = {
   months: SalesPlanMonth[]
 }
 
+export type SalesStatisticsMonth = {
+  period: string
+  salesPlan: number | null
+  salesForecast: number | null
+  salesFact: number | null
+  assignedMeetingsPlan: number | null
+  assignedMeetingsFact: number | null
+  demoSvlPlan: number | null
+  demoSvlFact: number | null
+  demoCopPlan: number | null
+  demoCopFact: number | null
+  qualifiedLeads: number | null
+  newClientMeetings: number | null
+  newClientSales: number | null
+  activeClientMeetings: number | null
+  activeClientSales: number | null
+  inactiveClientMeetings: number | null
+  inactiveClientSales: number | null
+  svlSold: number | null
+  svlAverageCheck: number | null
+  copSold: number | null
+  copAverageCheck: number | null
+  svlUpsells: number | null
+  svlUpsellAverageCheck: number | null
+  proposals: number | null
+}
+
+export type SalesStatistics = {
+  year: number
+  months: SalesStatisticsMonth[]
+}
+
 export type DashboardSnapshot = {
   source: "snapshot" | "google-sheets"
   sourceLabel: string
@@ -52,6 +84,7 @@ export type DashboardSnapshot = {
   opportunities: Opportunity[]
   meetings: Meeting[]
   salesPlan: SalesPlan
+  salesStatistics: SalesStatistics
 }
 
 export interface DashboardDataProvider {

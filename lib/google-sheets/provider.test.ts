@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { parseGvizResponse, parseMeetingsTable, parseMonthlyTable, parseOpportunitiesTable, parseSalesPlanTable, type GvizTable } from "./provider"
+import { parseGvizResponse, parseMeetingsTable, parseMonthlyTable, parseOpportunitiesTable, parseSalesPlanTable, parseSalesStatisticsTable, type GvizTable } from "./provider"
 
 const managers = ["Алексей Ладьин", "Анастасия Маслихова", "Дарья Степанова"]
 
@@ -85,6 +85,27 @@ describe("Google Sheets normalization", () => {
       annualPlan: 333,
       months: monthlyPlans.map((plan, index) => ({ period: ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"][index], plan })),
     })
+  })
+
+  it("extracts 2026 monthly totals from the sales statistics block", () => {
+    const table: GvizTable = { rows: [
+      row({ 1: "План Продаж, руб", 15: 13, 20: 26, 21: 6, 26: 33, 31: 34 }),
+      row({ 1: "Ежемесячный Прогноз продаж", 15: 12, 20: 30, 26: 35, 31: 35 }),
+      row({ 1: "Факт продаж, руб", 15: 4, 20: 23, 21: 2, 26: 21, 31: 31 }),
+      row({ 1: "План Назначено встреч", 15: 16, 20: 38, 26: 36, 31: 36 }),
+      row({ 1: "Факт назначено встреч для мероприятий  ", 15: 22, 20: 15, 26: 16 }),
+      row({ 1: "Новые квалифицированные лиды, шт", 15: 9, 20: 39, 26: 10 }),
+      row({ 1: "Кол-во встреч по воронке \"Новые клиенты\", шт.", 15: 6, 20: 11, 26: 7 }),
+      row({ 1: "Кол-во продаж по воронке  \"Новые клиенты\", шт", 15: 0, 20: 0, 26: 0 }),
+    ] }
+
+    const result = parseSalesStatisticsTable(table)
+
+    expect(result.months).toHaveLength(8)
+    expect(result.months[0]).toMatchObject({ period: "Январь", salesPlan: 13, salesFact: 4, qualifiedLeads: 9 })
+    expect(result.months[5]).toMatchObject({ period: "Июнь", salesPlan: 26, salesFact: 23 })
+    expect(result.months[6]).toMatchObject({ period: "Июль", salesPlan: 33, salesFact: 21 })
+    expect(result.months[7]).toMatchObject({ period: "Август", salesPlan: 34, salesFact: 31 })
   })
 
   it("rejects malformed query responses", () => {

@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation"
 import { useTheme } from "next-themes"
 import {
   BriefcaseBusinessIcon,
+  ChartSplineIcon,
   ExternalLinkIcon,
   FileSpreadsheetIcon,
   LayoutDashboardIcon,
@@ -48,6 +49,7 @@ const asOfFormatter = new Intl.DateTimeFormat("ru-RU", {
 
 const nav = [
   { title: "Обзор", href: "/", icon: LayoutDashboardIcon },
+  { title: "Статистика продаж", href: "/sales-statistics", icon: ChartSplineIcon },
   { title: "Проекты", href: "/projects", icon: BriefcaseBusinessIcon },
   { title: "Журнал встреч", href: "/meetings", icon: VideoIcon },
   { title: "Итоги года", href: "/managers", icon: UserRoundCheckIcon },
@@ -55,12 +57,13 @@ const nav = [
 
 const pageTitles: Record<string, string> = {
   "/": "Дашборд блока центральных продаж",
+  "/sales-statistics": "Статистика и воронка продаж",
   "/projects": "Высоковероятные проекты",
   "/meetings": "Журнал встреч",
   "/managers": "Показатели менеджеров за год",
 }
 
-export function DashboardFrame({ children, sourceLabel, asOf }: { children: React.ReactNode; sourceLabel: string; asOf: string }) {
+export function DashboardFrame({ children, sourceLabel, asOf, sourceUrl = sheetUrl }: { children: React.ReactNode; sourceLabel: string; asOf: string; sourceUrl?: string }) {
   const pathname = usePathname()
 
   return (
@@ -78,7 +81,7 @@ export function DashboardFrame({ children, sourceLabel, asOf }: { children: Reac
             </div>
             <ThemeToggle />
             <Tooltip>
-              <TooltipTrigger render={<Button nativeButton={false} variant="outline" size="sm" render={<a href={sheetUrl} target="_blank" rel="noreferrer" />} />}>
+              <TooltipTrigger render={<Button nativeButton={false} variant="outline" size="sm" render={<a href={sourceUrl} target="_blank" rel="noreferrer" />} />}>
                 <FileSpreadsheetIcon data-icon="inline-start" /><span className="hidden sm:inline">Открыть источник</span><ExternalLinkIcon data-icon="inline-end" />
               </TooltipTrigger>
               <TooltipContent>Google Sheets откроется в новой вкладке</TooltipContent>

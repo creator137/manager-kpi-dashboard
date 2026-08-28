@@ -17,7 +17,9 @@ export async function getDashboardData() {
     ?? "1UyVjJaVMZlufAZ4uWuQ9GvdCWb2xE-z-sTAm2dQcDX0"
   const salesPlanSpreadsheetId = process.env.GOOGLE_SHEETS_SALES_PLAN_SPREADSHEET_ID
     ?? "1XgHRGC7B0YT0pCJcBAULueZ6So82OLvu"
-  const provider: DashboardDataProvider = new GoogleSheetsProvider(spreadsheetId, salesPlanSpreadsheetId)
+  const salesStatisticsSpreadsheetId = process.env.GOOGLE_SHEETS_SALES_STATISTICS_SPREADSHEET_ID
+    ?? "17m2AWOh4xYN6SuM7tagdsmqER6U_LHrtH-fjyWUef-0"
+  const provider: DashboardDataProvider = new GoogleSheetsProvider(spreadsheetId, salesPlanSpreadsheetId, salesStatisticsSpreadsheetId)
 
   try {
     return await provider.getSnapshot()
