@@ -5,6 +5,7 @@ export const kpiLabels: Record<KpiKey, string> = {
   salesCount: "Продажи, шт.",
   calls: "Состоялось разговоров",
   newMeetings: "Встречи по новым проектам",
+  preSaleMeetings: "Pre-sale встречи",
   proposals: "Коммерческие предложения, шт.",
 }
 

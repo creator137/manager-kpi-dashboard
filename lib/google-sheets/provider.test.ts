@@ -32,6 +32,34 @@ describe("Google Sheets normalization", () => {
     expect(result.records).toContainEqual({ period: "Июль", manager: managers[0], kpi: "salesCount", plan: 5, fact: 1 })
   })
 
+  it("extracts pre-sale daily facts and excludes the department summary", () => {
+    const table: GvizTable = { rows: [
+      row({ 1: "Алексей\nЛадьин", 2: 15_000_000, 4: 0 }),
+      row({ 1: managers[1], 2: 15_000_000, 4: 19_912_052 }),
+      row({ 1: managers[2], 2: 10_000_000, 4: 4_596_152 }),
+      row({ 1: "По отделу", 2: 40_000_000, 4: 24_508_204 }),
+      row({ 1: "Алексей\nЛадьин", 2: "Состоялось разговоров", 3: 310, 5: 193 }),
+      row({ 2: "Проведено pre -sale встреч", 34: 0, 35: 0, 36: 0, 37: 0, 38: 1 }),
+      row({ 1: managers[1], 2: "Состоялось разговоров", 3: 20, 5: 153 }),
+      row({ 2: "Проведено pre-sale встреч", 35: 0, 36: 0, 37: 0 }),
+      row({ 1: managers[2], 2: "Состоялось разговоров", 3: 20, 5: 94 }),
+      row({ 2: "Проведено pre sale встреч", 34: 0, 35: 0, 36: 0, 37: 0, 38: 0 }),
+      row({ 1: "Свод", 2: "Состоялось разговоров", 3: 350, 5: 440 }),
+      row({ 2: "Проведено встреч по новым проектам", 3: 25, 5: 7 }),
+    ] }
+
+    const result = parseMonthlyTable("Сентябрь", table)
+
+    expect(result.managers).toEqual(managers)
+    expect(result.records.filter((record) => record.kpi === "preSaleMeetings")).toEqual([
+      { period: "Сентябрь", manager: managers[0], kpi: "preSaleMeetings", plan: null, fact: 1 },
+      { period: "Сентябрь", manager: managers[1], kpi: "preSaleMeetings", plan: null, fact: 0 },
+      { period: "Сентябрь", manager: managers[2], kpi: "preSaleMeetings", plan: null, fact: 0 },
+    ])
+    expect(result.records.filter((record) => record.kpi === "newMeetings")).toHaveLength(0)
+    expect(result.records.filter((record) => record.kpi === "calls")).toHaveLength(3)
+  })
+
   it("keeps opportunity month sections and expands manager aliases", () => {
     const table: GvizTable = { rows: [
       row({ 0: "Июль" }),

@@ -1,7 +1,7 @@
 import type { DashboardRecord, DashboardSnapshot, KpiKey } from "@/lib/dashboard/types"
 
 const managers = ["Алексей Ладьин", "Анастасия Маслихова", "Дарья Степанова"]
-const periods = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август"]
+const periods = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь"]
 
 const salesHistory: Array<[string, string, number, number | null]> = [
   ["Январь", managers[0], 6_000_000, 12_635_121], ["Январь", managers[1], 6_000_000, 1_220_500], ["Январь", managers[2], 1_266_000, 210_000],
@@ -11,17 +11,18 @@ const salesHistory: Array<[string, string, number, number | null]> = [
   ["Май", managers[0], 15_000_000, 1_977_300], ["Май", managers[1], 15_000_000, 46_535_162], ["Май", managers[2], 7_000_000, 39_545_984],
   ["Июнь", managers[0], 11_000_000, 2_730_000], ["Июнь", managers[1], 11_000_000, 6_311_820], ["Июнь", managers[2], 8_000_000, 218_000],
   ["Июль", managers[0], 12_500_000, 351_000], ["Июль", managers[1], 12_500_000, 10_759_350], ["Июль", managers[2], 10_000_000, 7_687_720],
-  ["Август", managers[0], 12_500_000, 0], ["Август", managers[1], 12_500_000, 19_786_567.8], ["Август", managers[2], 10_000_000, 0],
+  ["Август", managers[0], 12_500_000, 6_434_068], ["Август", managers[1], 12_500_000, 23_895_357.8], ["Август", managers[2], 10_000_000, 7_853_532],
+  ["Сентябрь", managers[0], 15_000_000, 0], ["Сентябрь", managers[1], 15_000_000, 19_912_052], ["Сентябрь", managers[2], 10_000_000, 4_596_152],
 ]
 
 const activity: Array<[string, KpiKey, number, number]> = [
-  [managers[0], "calls", 310, 64], [managers[0], "newMeetings", 8, 1], [managers[0], "proposals", 24, 3], [managers[0], "salesCount", 5, 0],
-  [managers[1], "calls", 20, 132], [managers[1], "newMeetings", 9, 2], [managers[1], "proposals", 17, 39], [managers[1], "salesCount", 5, 8],
-  [managers[2], "calls", 20, 69], [managers[2], "newMeetings", 8, 1], [managers[2], "proposals", 17, 6], [managers[2], "salesCount", 5, 0],
+  [managers[0], "calls", 310, 116], [managers[0], "newMeetings", 8, 1], [managers[0], "proposals", 24, 7], [managers[0], "salesCount", 5, 0],
+  [managers[1], "calls", 20, 179], [managers[1], "newMeetings", 9, 3], [managers[1], "proposals", 17, 42], [managers[1], "salesCount", 5, 10],
+  [managers[2], "calls", 20, 72], [managers[2], "newMeetings", 8, 1], [managers[2], "proposals", 17, 7], [managers[2], "salesCount", 5, 0],
 ]
 
 const historicalActivity: DashboardRecord[] = []
-const pushMetric = (kpi: KpiKey, period: string, plans: number[], facts: number[]) => {
+const pushMetric = (kpi: KpiKey, period: string, plans: Array<number | null>, facts: Array<number | null>) => {
   managers.forEach((manager, index) => historicalActivity.push({ period, manager, kpi, plan: plans[index], fact: facts[index] }))
 }
 
@@ -52,6 +53,12 @@ pushMetric("proposals", "Май", [24, 17, 17], [20, 62, 8])
 pushMetric("proposals", "Июнь", [24, 17, 17], [10, 30, 16])
 pushMetric("proposals", "Июль", [24, 17, 17], [16, 28, 9])
 
+pushMetric("calls", "Сентябрь", [310, 20, 20], [193, 153, 94])
+pushMetric("newMeetings", "Сентябрь", [8, 9, 8], [0, 3, 4])
+pushMetric("preSaleMeetings", "Сентябрь", [null, null, null], [1, 0, 0])
+pushMetric("proposals", "Сентябрь", [24, 17, 17], [9, 8, 10])
+pushMetric("salesCount", "Сентябрь", [5, 5, 5], [0, 3, 2])
+
 const records: DashboardRecord[] = [
   ...salesHistory.map(([period, manager, plan, fact]) => ({ period, manager, kpi: "revenue" as const, plan, fact })),
   ...historicalActivity,
@@ -61,7 +68,7 @@ const records: DashboardRecord[] = [
 export const dashboardSnapshot: DashboardSnapshot = {
   source: "snapshot",
   sourceLabel: "Google Sheets · read-only snapshot",
-  asOf: "2026-08-25T13:00:00+05:00",
+  asOf: "2026-09-28T14:00:00+05:00",
   periods,
   managers,
   records,

@@ -1,4 +1,4 @@
-export type KpiKey = "revenue" | "salesCount" | "calls" | "newMeetings" | "proposals"
+export type KpiKey = "revenue" | "salesCount" | "calls" | "newMeetings" | "preSaleMeetings" | "proposals"
 
 export type DashboardRecord = {
   period: string

@@ -40,6 +40,13 @@ const MONTHS_2026 = [
 ] as const
 
 const DEFAULT_REVALIDATE_SECONDS = 60
+const DAILY_FACT_COLUMNS = [
+  8, 9, 10, 11,
+  16, 17, 18, 19, 20,
+  25, 26, 27, 28, 29,
+  34, 35, 36, 37, 38,
+  43, 44, 45, 46, 47,
+] as const
 
 function cellValue(row: GvizTable["rows"][number], column: number) {
   return row.c?.[column]?.v ?? null
@@ -69,10 +76,22 @@ function numberValue(row: GvizTable["rows"][number], column: number) {
 function kpiForLabel(label: string): KpiKey | null {
   const normalized = label.toLocaleLowerCase("ru-RU")
   if (normalized.includes("состоялось разговоров")) return "calls"
+  if (/pre\s*-?\s*sale/.test(normalized) && normalized.includes("встреч")) return "preSaleMeetings"
   if (normalized.includes("встреч") && normalized.includes("новым проектам")) return "newMeetings"
   if (normalized.includes("сделано кп") && !normalized.includes("сумм")) return "proposals"
   if (/^продаж(?: всего)? \(шт\)/.test(normalized)) return "salesCount"
   return null
+}
+
+function normalizedManager(row: GvizTable["rows"][number]) {
+  return textValue(row, 1).replace(/\s+/g, " ").trim()
+}
+
+function factForKpi(row: GvizTable["rows"][number], kpi: KpiKey) {
+  if (kpi !== "preSaleMeetings") return numberValue(row, 5)
+  const dailyValues = DAILY_FACT_COLUMNS.map((column) => numberValue(row, column))
+  const known = dailyValues.filter((value): value is number => value !== null)
+  return known.length ? known.reduce((sum, value) => sum + value, 0) : null
 }
 
 export function parseMonthlyTable(period: string, table: GvizTable) {
@@ -80,7 +99,7 @@ export function parseMonthlyTable(period: string, table: GvizTable) {
   const managers: string[] = []
 
   for (const row of table.rows.slice(0, 10)) {
-    const manager = textValue(row, 1)
+    const manager = normalizedManager(row)
     const plan = numberValue(row, 2)
     if (!manager || manager.startsWith("По отделу") || plan === null) continue
 
@@ -90,8 +109,9 @@ export function parseMonthlyTable(period: string, table: GvizTable) {
 
   let currentManager: string | null = null
   for (const row of table.rows) {
-    const manager = textValue(row, 1)
+    const manager = normalizedManager(row)
     if (managers.includes(manager)) currentManager = manager
+    else if (manager) currentManager = null
 
     const kpi = kpiForLabel(textValue(row, 2))
     if (!currentManager || !kpi) continue
@@ -101,7 +121,7 @@ export function parseMonthlyTable(period: string, table: GvizTable) {
       manager: currentManager,
       kpi,
       plan: numberValue(row, 3),
-      fact: numberValue(row, 5),
+      fact: factForKpi(row, kpi),
     })
   }
 
