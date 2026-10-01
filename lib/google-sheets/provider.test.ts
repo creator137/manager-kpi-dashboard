@@ -61,16 +61,23 @@ describe("Google Sheets normalization", () => {
   })
 
   it("keeps opportunity month sections and expands manager aliases", () => {
-    const table: GvizTable = { rows: [
+    const table: GvizTable = {
+      cols: [
+        { label: "Компания" }, { label: "Название" }, { label: "Менеджер" },
+        { label: "Ссылка" }, { label: "Продукт" }, { label: "Сумма" },
+        { label: "" }, { label: "Дата отправки КП" }, { label: "Продано" },
+        { label: "Коментарий" }, { label: "" },
+      ],
+      rows: [
       row({ 0: "Июль" }),
-      row({ 0: "Old", 1: "Old project", 2: "Алексей Л", 4: 1, 5: false }),
+      row({ 0: "Old", 1: "Old project", 2: "Алексей Л", 4: "SVL", 5: 1, 8: false }),
       row({ 0: "Август" }),
-      row({ 0: "MR Group", 1: "Ситизен", 2: "Анастасия М", 4: 4_600_000, 5: false, 6: "тендер" }),
+      row({ 0: "MR Group", 1: "Ситизен", 2: "Анастасия М", 4: "ЦОП", 5: 4_600_000, 8: true, 9: "тендер" }),
     ] }
 
     expect(parseOpportunitiesTable(table, managers)).toEqual([
-      { period: "Июль", company: "Old", project: "Old project", manager: "Алексей Ладьин", amount: 1, sold: false },
-      { period: "Август", company: "MR Group", project: "Ситизен", manager: "Анастасия Маслихова", amount: 4_600_000, sold: false, note: "тендер" },
+      { period: "Июль", company: "Old", project: "Old project", manager: "Алексей Ладьин", product: "SVL", amount: 1, sold: false },
+      { period: "Август", company: "MR Group", project: "Ситизен", manager: "Анастасия Маслихова", product: "ЦОП", amount: 4_600_000, sold: true, note: "тендер" },
     ])
   })
 

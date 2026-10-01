@@ -16,7 +16,7 @@ import { PageHeading } from "@/components/dashboard/page-heading"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart"
+import { ChartContainer, ChartLegend, ChartLegendContent, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart"
 import { Progress } from "@/components/ui/progress"
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -44,9 +44,9 @@ const funnelConfig = {
 } satisfies ChartConfig
 
 const productConfig = {
-  svlSold: { label: "Новые SVL", color: "var(--chart-1)" },
   copSold: { label: "ЦОП", color: "var(--chart-2)" },
-  svlUpsells: { label: "Допродажи SVL", color: "var(--chart-3)" },
+  svlSold: { label: "SVL", color: "var(--chart-1)" },
+  svlUpsells: { label: "Допродажа", color: "var(--chart-3)" },
 } satisfies ChartConfig
 
 const checkConfig = {
@@ -147,17 +147,18 @@ export function SalesStatisticsDashboard({ statistics }: { statistics: SalesStat
         </Card>
 
         <Card className="@5xl/main:col-span-2">
-          <CardHeader><CardTitle>Продажи по продуктам</CardTitle><CardDescription>Новые продукты и допродажи по месяцам</CardDescription></CardHeader>
+          <CardHeader><CardTitle>Продажи по продуктам</CardTitle><CardDescription>ЦОП, SVL и допродажи по месяцам</CardDescription></CardHeader>
           <CardContent>
             <ChartContainer config={productConfig} className="h-64 w-full">
               <BarChart accessibilityLayer data={trend} margin={{ left: 4, right: 8 }}>
                 <CartesianGrid vertical={false} stroke="var(--border)" />
                 <XAxis dataKey="period" tickLine={false} axisLine={false} tickMargin={10} tickFormatter={shortMonth} />
                 <YAxis hide />
-                <ChartTooltip content={<ChartTooltipContent formatter={(value) => formatNumber(Number(value))} />} />
-                <Bar dataKey="svlSold" stackId="products" fill="var(--color-svlSold)" radius={3} isAnimationActive={false} />
-                <Bar dataKey="copSold" stackId="products" fill="var(--color-copSold)" radius={3} isAnimationActive={false} />
-                <Bar dataKey="svlUpsells" stackId="products" fill="var(--color-svlUpsells)" radius={3} isAnimationActive={false} />
+                <ChartTooltip content={<ChartTooltipContent />} />
+                <ChartLegend content={<ChartLegendContent />} />
+                <Bar dataKey="copSold" fill="var(--color-copSold)" radius={3} isAnimationActive={false} />
+                <Bar dataKey="svlSold" fill="var(--color-svlSold)" radius={3} isAnimationActive={false} />
+                <Bar dataKey="svlUpsells" fill="var(--color-svlUpsells)" radius={3} isAnimationActive={false} />
               </BarChart>
             </ChartContainer>
           </CardContent>

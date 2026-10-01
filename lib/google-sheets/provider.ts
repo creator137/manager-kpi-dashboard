@@ -15,6 +15,7 @@ type GvizCell = {
 }
 
 export type GvizTable = {
+  cols?: Array<{ id?: string; label?: string; type?: string }>
   rows: Array<{ c: Array<GvizCell | null> }>
 }
 
@@ -141,26 +142,39 @@ export function parseOpportunitiesTable(
   managers: string[],
 ): Opportunity[] {
   let period = ""
+  const column = (label: RegExp, fallback: number) => {
+    const index = table.cols?.findIndex((item) => label.test(item.label?.trim() ?? "")) ?? -1
+    return index >= 0 ? index : fallback
+  }
+  const companyColumn = column(/^компания/i, 0)
+  const projectColumn = column(/^название/i, 1)
+  const managerColumn = column(/^менеджер/i, 2)
+  const dealUrlColumn = column(/^ссылка/i, 3)
+  const productColumn = column(/^продукт/i, -1)
+  const amountColumn = column(/^сумма/i, 4)
+  const soldColumn = column(/^продано/i, 5)
+  const commentColumn = column(/^ком+ентар/i, 6)
 
   return table.rows.flatMap((row) => {
-    const company = textValue(row, 0)
+    const company = textValue(row, companyColumn)
     if (MONTHS_2026.includes(company as (typeof MONTHS_2026)[number])) {
       period = company
       return []
     }
 
-    const managerAlias = textValue(row, 2)
+    const managerAlias = textValue(row, managerColumn)
     if (!period || !company || !managerAlias) return []
 
-    const notes = [textValue(row, 6), textValue(row, 7)].filter(Boolean)
+    const notes = [textValue(row, commentColumn), textValue(row, commentColumn + 1)].filter(Boolean)
     return [{
       period,
       company,
-      project: textValue(row, 1) || "Без названия проекта",
+      project: textValue(row, projectColumn) || "Без названия проекта",
       manager: resolveManager(managerAlias, managers),
-      amount: numberValue(row, 4) ?? 0,
-      sold: cellValue(row, 5) === true,
-      dealUrl: textValue(row, 3) || undefined,
+      product: productColumn >= 0 ? textValue(row, productColumn) || undefined : undefined,
+      amount: numberValue(row, amountColumn),
+      sold: cellValue(row, soldColumn) === true,
+      dealUrl: textValue(row, dealUrlColumn) || undefined,
       note: notes.length ? notes.join(" · ") : undefined,
     }]
   })

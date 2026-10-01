@@ -13,7 +13,8 @@ export type Opportunity = {
   company: string
   project: string
   manager: string
-  amount: number
+  product?: string
+  amount: number | null
   sold: boolean
   dealUrl?: string
   note?: string
