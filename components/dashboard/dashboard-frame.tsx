@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation"
 import { useTheme } from "next-themes"
 import {
   BriefcaseBusinessIcon,
+  Building2Icon,
   CircleAlertIcon,
   ChartSplineIcon,
   ExternalLinkIcon,
@@ -50,6 +51,7 @@ const asOfFormatter = new Intl.DateTimeFormat("ru-RU", {
 })
 
 const nav = [
+  { title: "Проработка ЖК", href: "/outreach", icon: Building2Icon },
   { title: "Обзор", href: "/", icon: LayoutDashboardIcon },
   { title: "Статистика продаж", href: "/sales-statistics", icon: ChartSplineIcon },
   { title: "Проекты", href: "/projects", icon: BriefcaseBusinessIcon },
@@ -58,6 +60,7 @@ const nav = [
 ]
 
 const pageTitles: Record<string, string> = {
+  "/outreach": "Проработка ЖК",
   "/": "Дашборд блока центральных продаж",
   "/sales-statistics": "Статистика и воронка продаж",
   "/projects": "Высоковероятные проекты",
