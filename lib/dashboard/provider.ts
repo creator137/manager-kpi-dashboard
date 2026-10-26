@@ -28,6 +28,7 @@ export async function getDashboardData() {
     return {
       ...dashboardSnapshot,
       sourceLabel: "Google Sheets · резервный snapshot",
+      warnings: ["Обновление Google Sheets недоступно. Показаны сохранённые данные; новые периоды и проекты могут отсутствовать."],
     }
   }
 }

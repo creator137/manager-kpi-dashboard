@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation"
 import { useTheme } from "next-themes"
 import {
   BriefcaseBusinessIcon,
+  CircleAlertIcon,
   ChartSplineIcon,
   ExternalLinkIcon,
   FileSpreadsheetIcon,
@@ -19,6 +20,7 @@ import {
 
 import { logout } from "@/app/login/actions"
 import { Button } from "@/components/ui/button"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Separator } from "@/components/ui/separator"
 import {
   Sidebar,
@@ -63,7 +65,7 @@ const pageTitles: Record<string, string> = {
   "/managers": "Показатели менеджеров за год",
 }
 
-export function DashboardFrame({ children, sourceLabel, asOf, sourceUrl = sheetUrl }: { children: React.ReactNode; sourceLabel: string; asOf: string; sourceUrl?: string }) {
+export function DashboardFrame({ children, sourceLabel, asOf, warnings = [], sourceUrl = sheetUrl }: { children: React.ReactNode; sourceLabel: string; asOf: string; warnings?: string[]; sourceUrl?: string }) {
   const pathname = usePathname()
 
   return (
@@ -88,7 +90,10 @@ export function DashboardFrame({ children, sourceLabel, asOf, sourceUrl = sheetU
             </Tooltip>
           </div>
         </header>
-        <main className="@container/main flex flex-1 flex-col">{children}</main>
+        <main className="@container/main flex flex-1 flex-col">
+          {warnings.length > 0 && <div className="px-4 pt-4 lg:px-6"><Alert><CircleAlertIcon /><AlertTitle>Не все данные обновлены</AlertTitle><AlertDescription><ul className="flex list-disc flex-col gap-1 pl-4">{warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul></AlertDescription></Alert></div>}
+          {children}
+        </main>
       </SidebarInset>
     </SidebarProvider>
   )

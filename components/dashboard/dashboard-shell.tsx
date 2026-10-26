@@ -79,7 +79,7 @@ export function DashboardShell({ snapshot, scenario }: { snapshot: DashboardSnap
   }
 
   return (
-    <DashboardFrame sourceLabel={snapshot.sourceLabel} asOf={snapshot.asOf}>
+    <DashboardFrame sourceLabel={snapshot.sourceLabel} asOf={snapshot.asOf} warnings={snapshot.warnings}>
           <section id="overview" className="flex flex-col gap-6 px-4 py-5 lg:px-6 lg:py-6">
             <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
               <div className="flex flex-col gap-1">

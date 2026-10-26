@@ -6,5 +6,5 @@ import { getDashboardData } from "@/lib/dashboard/provider"
 export default async function ManagersPage() {
   await requireSession()
   const snapshot = await getDashboardData()
-  return <DashboardFrame sourceLabel={snapshot.sourceLabel} asOf={snapshot.asOf}><YearDashboard snapshot={snapshot} /></DashboardFrame>
+  return <DashboardFrame sourceLabel={snapshot.sourceLabel} asOf={snapshot.asOf} warnings={snapshot.warnings}><YearDashboard snapshot={snapshot} /></DashboardFrame>
 }

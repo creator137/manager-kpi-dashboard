@@ -46,7 +46,8 @@ const statusOptions: Array<{ value: OpportunityStatus; label: string }> = [
 export function OpportunitiesDashboard({ snapshot }: { snapshot: DashboardSnapshot }) {
   const periodsWithProjects = new Set(snapshot.opportunities.map((item) => item.period))
   const availablePeriods = months.filter((month) => periodsWithProjects.has(month))
-  const defaultPeriod = availablePeriods.findLast((month) => snapshot.opportunities.some((item) => item.period === month && item.amount !== null))
+  const currentPeriod = snapshot.periods.at(-1)
+  const defaultPeriod = currentPeriod && periodsWithProjects.has(currentPeriod) ? currentPeriod : availablePeriods.findLast((month) => snapshot.opportunities.some((item) => item.period === month && item.amount !== null))
     ?? availablePeriods.at(-1)
     ?? snapshot.periods.at(-1)
     ?? "Август"

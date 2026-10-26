@@ -6,5 +6,5 @@ import { getDashboardData } from "@/lib/dashboard/provider"
 export default async function MeetingsPage() {
   await requireSession()
   const snapshot = await getDashboardData()
-  return <DashboardFrame sourceLabel={snapshot.sourceLabel} asOf={snapshot.asOf}><MeetingsDashboard snapshot={snapshot} /></DashboardFrame>
+  return <DashboardFrame sourceLabel={snapshot.sourceLabel} asOf={snapshot.asOf} warnings={snapshot.warnings}><MeetingsDashboard snapshot={snapshot} /></DashboardFrame>
 }

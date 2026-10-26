@@ -8,5 +8,5 @@ const sourceUrl = "https://docs.google.com/spreadsheets/d/17m2AWOh4xYN6SuM7tagds
 export default async function SalesStatisticsPage() {
   await requireSession()
   const snapshot = await getDashboardData()
-  return <DashboardFrame sourceLabel={snapshot.sourceLabel} asOf={snapshot.asOf} sourceUrl={sourceUrl}><SalesStatisticsDashboard statistics={snapshot.salesStatistics} /></DashboardFrame>
+  return <DashboardFrame sourceLabel={snapshot.sourceLabel} asOf={snapshot.asOf} warnings={snapshot.warnings} sourceUrl={sourceUrl}><SalesStatisticsDashboard statistics={snapshot.salesStatistics} /></DashboardFrame>
 }

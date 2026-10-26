@@ -1,3 +1,6 @@
+import { parse } from "csv-parse/sync"
+
+import { dashboardSnapshot } from "@/data/dashboard-snapshot"
 import type {
   DashboardDataProvider,
   DashboardRecord,
@@ -41,6 +44,7 @@ const MONTHS_2026 = [
 ] as const
 
 const DEFAULT_REVALIDATE_SECONDS = 60
+const MONTHLY_SHEET_IDS = [1305562677, 298730523, 553664227, 1283288155, 1387288659, 193727364, 1606199007, 948952010, 1440976366, 22166137, 967150239, 1839540335] as const
 const DAILY_FACT_COLUMNS = [
   8, 9, 10, 11,
   16, 17, 18, 19, 20,
@@ -102,7 +106,7 @@ export function parseMonthlyTable(period: string, table: GvizTable) {
   for (const row of table.rows.slice(0, 10)) {
     const manager = normalizedManager(row)
     const plan = numberValue(row, 2)
-    if (!manager || manager.startsWith("По отделу") || plan === null) continue
+    if (!manager || manager.startsWith("#") || manager.startsWith("По отделу") || plan === null) continue
 
     managers.push(manager)
     records.push({ period, manager, kpi: "revenue", plan, fact: numberValue(row, 4) })
@@ -173,7 +177,7 @@ export function parseOpportunitiesTable(
       manager: resolveManager(managerAlias, managers),
       product: productColumn >= 0 ? textValue(row, productColumn) || undefined : undefined,
       amount: numberValue(row, amountColumn),
-      sold: cellValue(row, soldColumn) === true,
+      sold: cellValue(row, soldColumn) === true || /^true$/i.test(textValue(row, soldColumn)),
       dealUrl: textValue(row, dealUrlColumn) || undefined,
       note: notes.length ? notes.join(" · ") : undefined,
     }]
@@ -291,7 +295,12 @@ export function parseSalesStatisticsTable(table: GvizTable): SalesStatistics {
     proposals: "количество кп",
   } as const
 
-  const months = SALES_STATISTICS_MONTH_COLUMNS.map(([period, column]) => ({
+  const monthHeader = table.rows.find((row) => row.c.filter((cell) => typeof cell?.v === "string" && /2026/.test(cell.v)).length >= 3)
+  const columns = monthHeader ? MONTHS_2026.flatMap((period) => {
+    const column = monthHeader.c.findIndex((cell) => typeof cell?.v === "string" && cell.v.replace(/\s+/g, " ").trim() === `${period} 2026`)
+    return column >= 0 ? [[period, column] as const] : []
+  }) : SALES_STATISTICS_MONTH_COLUMNS
+  const months = columns.map(([period, column]) => ({
     period,
     ...Object.fromEntries(Object.entries(labels).map(([key, label]) => [key, value(label, column)])),
   })) as SalesStatistics["months"]
@@ -317,6 +326,16 @@ export function parseGvizResponse(body: string): GvizTable {
   return payload.table
 }
 
+export function parseCsvTable(body: string): GvizTable {
+  if (/^\s*</.test(body)) throw new Error("Google Sheets returned HTML instead of CSV")
+  const [headers, ...rows] = parse(body, { bom: true, skip_empty_lines: true }) as string[][]
+  if (!headers?.length) throw new Error("Google Sheets returned an empty CSV")
+  return {
+    cols: headers.map((label) => ({ label })),
+    rows: rows.map((values) => ({ c: values.map((v) => ({ v })) })),
+  }
+}
+
 function periodsAvailableToday(date: Date) {
   const parts = new Intl.DateTimeFormat("en-US", {
     year: "numeric",
@@ -335,43 +354,86 @@ export class GoogleSheetsProvider implements DashboardDataProvider {
     private readonly salesPlanSpreadsheetId: string,
     private readonly salesStatisticsSpreadsheetId: string,
     private readonly revalidateSeconds = DEFAULT_REVALIDATE_SECONDS,
+    private readonly fallback: DashboardSnapshot = dashboardSnapshot,
   ) {}
 
   private async getTable(spreadsheetId: string, sheet?: string) {
     const url = new URL(`https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq`)
     url.searchParams.set("tqx", "out:json")
-    if (sheet) url.searchParams.set("sheet", sheet)
+    const monthIndex = MONTHS_2026.findIndex((month) => sheet === `${month} 2026`)
+    if (monthIndex >= 0 && spreadsheetId === "1UyVjJaVMZlufAZ4uWuQ9GvdCWb2xE-z-sTAm2dQcDX0") {
+      url.searchParams.set("gid", String(MONTHLY_SHEET_IDS[monthIndex]))
+    } else if (sheet) url.searchParams.set("sheet", sheet)
 
-    const response = await fetch(url, { next: { revalidate: this.revalidateSeconds } })
+    const response = await fetch(url, { next: { revalidate: this.revalidateSeconds }, signal: AbortSignal.timeout(15_000) })
     if (!response.ok) throw new Error(`Google Sheets returned HTTP ${response.status} for ${sheet ?? spreadsheetId}`)
     return parseGvizResponse(await response.text())
+  }
+
+  private async getCsvTable(spreadsheetId: string, gid: string) {
+    // CSV export preserves mixed text/number cells that gviz drops during type inference.
+    const url = new URL(`https://docs.google.com/spreadsheets/d/${spreadsheetId}/export`)
+    url.searchParams.set("format", "csv")
+    url.searchParams.set("gid", gid)
+    const response = await fetch(url, { next: { revalidate: this.revalidateSeconds }, signal: AbortSignal.timeout(15_000) })
+    if (!response.ok) throw new Error(`Google Sheets returned HTTP ${response.status} for sheet ${gid}`)
+    return parseCsvTable(await response.text())
   }
 
   async getSnapshot(): Promise<DashboardSnapshot> {
     const now = new Date()
     const periods = [...periodsAvailableToday(now)]
-    const [monthlyTables, opportunitiesTable, meetingsTable, salesPlanTable, salesStatisticsTable] = await Promise.all([
-      Promise.all(periods.map((period) => this.getTable(this.spreadsheetId, `${period} 2026`))),
-      this.getTable(this.spreadsheetId, "Высоковероятные проекты"),
-      this.getTable(this.spreadsheetId, "Журнал встреч"),
-      this.getTable(this.salesPlanSpreadsheetId),
-      this.getTable(this.salesStatisticsSpreadsheetId, "Блок продаж"),
+    const warnings: string[] = []
+    let liveSources = 0
+    const fallbackDate = new Intl.DateTimeFormat("ru-RU", { timeZone: "Asia/Yekaterinburg" }).format(new Date(this.fallback.asOf))
+    const load = async <T>(label: string, read: () => Promise<T>, fallback: T): Promise<T> => {
+      try {
+        const value = await read()
+        liveSources++
+        return value
+      } catch (error) {
+        console.error(`Google Sheets read failed: ${label}`, error)
+        warnings.push(`${label}: обновление недоступно. Используются сохранённые данные от ${fallbackDate}; новые значения этого блока могут отсутствовать.`)
+        return fallback
+      }
+    }
+
+    const monthlyPromise = Promise.all(periods.map((period) => load(
+      `${period} 2026`,
+      async () => {
+        const result = parseMonthlyTable(period, await this.getTable(this.spreadsheetId, `${period} 2026`))
+        if (!result.managers.length) throw new Error("Monthly sheet does not contain manager totals")
+        return result
+      },
+      { managers: this.fallback.managers, records: this.fallback.records.filter((record) => record.period === period) },
+    )))
+    const opportunitiesPromise = load("Высоковероятные проекты", async () => {
+      const table = await this.getCsvTable(this.spreadsheetId, "33736203")
+      if (!table.cols?.some((column) => /^компания/i.test(column.label ?? ""))) throw new Error("Projects CSV does not contain the expected headers")
+      return parseOpportunitiesTable(table, this.fallback.managers)
+    }, this.fallback.opportunities)
+    const meetingsPromise = load("Журнал встреч", async () => parseMeetingsTable(await this.getTable(this.spreadsheetId, "Журнал встреч"), this.fallback.managers), this.fallback.meetings)
+    const salesPlanPromise = load("Годовой план продаж", async () => parseSalesPlanTable(await this.getTable(this.salesPlanSpreadsheetId)), this.fallback.salesPlan)
+    const salesStatisticsPromise = load("Статистика продаж", async () => parseSalesStatisticsTable(await this.getCsvTable(this.salesStatisticsSpreadsheetId, "1809259780")), this.fallback.salesStatistics)
+
+    const [monthly, opportunities, meetings, salesPlan, salesStatistics] = await Promise.all([
+      monthlyPromise, opportunitiesPromise, meetingsPromise, salesPlanPromise, salesStatisticsPromise,
     ])
 
-    const monthly = monthlyTables.map((table, index) => parseMonthlyTable(periods[index], table))
     const managers = [...new Set(monthly.flatMap((item) => item.managers))]
 
     return {
-      source: "google-sheets",
-      sourceLabel: "Google Sheets · live read-only",
-      asOf: now.toISOString(),
+      source: liveSources ? "google-sheets" : "snapshot",
+      sourceLabel: liveSources ? warnings.length ? "Google Sheets · частичное обновление" : "Google Sheets · live read-only" : "Google Sheets · резервный snapshot",
+      warnings: warnings.sort(),
+      asOf: liveSources ? now.toISOString() : this.fallback.asOf,
       periods,
       managers,
       records: monthly.flatMap((item) => item.records),
-      opportunities: parseOpportunitiesTable(opportunitiesTable, managers),
-      meetings: parseMeetingsTable(meetingsTable, managers),
-      salesPlan: parseSalesPlanTable(salesPlanTable),
-      salesStatistics: parseSalesStatisticsTable(salesStatisticsTable),
+      opportunities: opportunities.map((item) => ({ ...item, manager: resolveManager(item.manager, managers) })),
+      meetings: meetings.map((item) => ({ ...item, manager: meetingManager(item.manager, managers) })),
+      salesPlan,
+      salesStatistics,
     }
   }
 }

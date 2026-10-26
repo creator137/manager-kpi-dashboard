@@ -78,6 +78,7 @@ export type SalesStatistics = {
 export type DashboardSnapshot = {
   source: "snapshot" | "google-sheets"
   sourceLabel: string
+  warnings?: string[]
   asOf: string
   periods: string[]
   managers: string[]
