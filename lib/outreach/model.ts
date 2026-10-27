@@ -5,7 +5,7 @@ export const STAGES = [
   { id: "study", label: "Изучение ЖК", description: "Анализ проекта на ДОМ.РФ: застройщик, ГК, декларации, сроки. Понимание масштаба для презентации SVL 360.", trigger: "Готовность к касанию", condition: "Менеджер изучил проект, выявил особенности и сформировал предложение под конкретный ЖК." },
   { id: "contacts", label: "Поиск ЛПР", description: "Поиск ЛПР через известные контакты. Если застройщик или ГК знакомы, ищем нужного человека через внутренние связи или общих знакомых.", trigger: "Найден свой выход", condition: "Найден прямой контакт или человек, через которого можно выйти на ЛПР." },
   { id: "external", label: "Закупка контактов", description: "Сбор базы ЛПР через внешние источники: LinkedIn, Контур.Компас, Telegram-каналы и открытые базы.", trigger: "Собрать 3 канала", condition: "Найдено минимум 3 канала связи: почта, мобильный телефон, мессенджер." },
-  { id: "call", label: "Звонок", description: "Звонок через центральный номер офиса. Задача — связаться с секретарём и выйти на ЛПР.", trigger: "Дозвон ≥ 1 из 3", condition: "Удалось дозвониться с 1–3 попытки или секретарь соединил с ЛПР." },
+  { id: "call", label: "Звонок в офис + отправка на инфо", description: "Звонок через центральный номер офиса: связаться с секретарём, уточнить выход на ЛПР и отправить информацию о предложении на общую почту компании (инфо).", trigger: "Звонок + отправка информации", condition: "Зафиксированы результат звонка и отправка информации на общую почту компании." },
   { id: "gift", label: "Подарок + буклет", description: "Физическое касание: отправка курьером брендированного подарка и буклета с AR-кодом на демо SVL 360. Если звонок не дал результата или для закрепления контакта.", trigger: "QR-скан ≥ 2", condition: "QR-код из буклета отсканирован минимум 2 раза. Факт отмечает менеджер; автоматический трекинг пока не подключён." },
   { id: "visit", label: "Визит в офис", description: "Визит в офис продаж, если предыдущие шаги не сработали. Просьба о 15-минутной встрече, демонстрация SVL 360 на планшете.", trigger: "Встреча на 15 мин", condition: "ЛПР вышел на контакт при визите и уделил 15 минут или больше." },
   { id: "scheduled", label: "Встреча назначена", description: "Согласовать с ЛПР дату, время и формат встречи. Зафиксировать назначение отдельным событием.", trigger: "Дата согласована", condition: "Есть подтверждённые дата и время встречи." },
@@ -31,6 +31,7 @@ export const catalogSchema = z.object({
 export type CatalogItem = z.infer<typeof catalogSchema>
 export const workflowSchema = z.object({
   studyDescription: text.optional(),
+  rejectionReason: text.optional(),
   manager: z.string().refine((v) => v === "" || MANAGERS.includes(v), "Выберите менеджера из списка"),
   qualification: qualificationSchema, stage: stageSchema, outcome: z.enum(["working", "paused", "rejected"]),
   contactName: text, phone: text, email: z.union([z.literal(""), z.email("Проверьте email")]), office: text,
@@ -93,14 +94,19 @@ export function applyCommand(workspace: Workspace, command: OutreachCommand, act
     if (STAGES.findIndex((s) => s.id === nextStage) > STAGES.findIndex((s) => s.id === current.workflow.stage) && !description?.trim()) throw new OutreachError("Заполните и сохраните описание ЖК по итогам изучения перед переходом на следующий этап.")
   }
   if (command.type === "edit") {
+    if (command.workflow.outcome === "rejected" && !command.workflow.rejectionReason?.trim()) throw new OutreachError("Укажите причину отказа.")
+    if ((current.workflow.outcome === "rejected" || command.workflow.outcome === "rejected") && command.workflow.outcome !== "working" && command.workflow.stage !== current.workflow.stage) throw new OutreachError("Для смены этапа сначала верните ЖК в работу.")
     if (["scheduled", "held", "proposal"].includes(command.workflow.stage) && command.workflow.stage !== current.workflow.stage) throw new OutreachError("Назначение встречи, проведение и отправку КП фиксируйте отдельным событием")
     requireStudy(command.workflow.stage, command.workflow.studyDescription)
     if (current.workflow.stage !== "study" && command.workflow.stage !== "study" && current.workflow.studyDescription?.trim() && !command.workflow.studyDescription?.trim()) throw new OutreachError("Описание изученного ЖК нельзя очистить после перехода к проработке.")
     project.workflow = command.workflow
+    if (command.workflow.outcome === "rejected" && (current.workflow.outcome !== "rejected" || current.workflow.rejectionReason !== command.workflow.rejectionReason)) project.events.push(event("updated", current.workflow.outcome === "rejected" ? "Причина отказа изменена" : "Зафиксирован отказ", command.workflow.rejectionReason))
+    if (current.workflow.outcome === "rejected" && command.workflow.outcome !== "rejected") project.events.push(event("updated", `Статус изменён: ${outcomeLabels[command.workflow.outcome]}`))
     if ((current.workflow.studyDescription ?? "") !== (command.workflow.studyDescription ?? "")) project.events.push(event("updated", "Описание ЖК обновлено", command.workflow.studyDescription || "Описание очищено"))
     project.events.push(event("updated", "Карточка обновлена", `Ответственный: ${command.workflow.manager || "не назначен"}. Источник: ${qualificationLabels[command.workflow.qualification]}. Статус: ${outcomeLabels[command.workflow.outcome]}.`))
   }
   if (command.type === "stage") {
+    if (current.workflow.outcome === "rejected") throw new OutreachError("Для смены этапа сначала верните ЖК в работу.")
     if (["scheduled", "held", "proposal"].includes(command.stage)) throw new OutreachError("Для этого этапа зафиксируйте событие с датой")
     if (!eligible(project)) throw new OutreachError("Сначала подтвердите самостоятельный отбор ЖК")
     requireStudy(command.stage)
@@ -108,6 +114,7 @@ export function applyCommand(workspace: Workspace, command: OutreachCommand, act
     project.events.push(event("stage", `Этап: ${STAGES.find((s) => s.id === command.stage)?.label}`))
   }
   if (command.type === "activity") {
+    if (current.workflow.outcome === "rejected" && command.kind !== "note") throw new OutreachError("Для записи встречи или КП сначала верните ЖК в работу.")
     if (!eligible(project) && command.kind !== "note") throw new OutreachError("Встречи и КП этого раздела учитываются только по самостоятельно отобранным ЖК")
     if (command.kind !== "meeting_scheduled" && new Date(command.occurredAt).getTime() > new Date(now).getTime() + 60_000) throw new OutreachError("Фактическое действие нельзя записать будущей датой")
     const nextStage = { meeting_scheduled: "scheduled", meeting_held: "held", proposal_sent: "proposal", note: project.workflow.stage } as const

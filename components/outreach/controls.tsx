@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 import { STAGES, type Stage } from "@/lib/outreach/model"
 
 export function OutreachSelect({ label, value, options, onChange, disabled }: { label: string; value: string; options: { value: string; label: string }[]; onChange: (value: string) => void; disabled?: boolean }) {
-  return <Select value={value} items={options} onValueChange={(v) => v !== null && onChange(v)} disabled={disabled}><SelectTrigger className="w-full" aria-label={label}><SelectValue /></SelectTrigger><SelectContent alignItemWithTrigger={false}><SelectGroup>{options.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}</SelectGroup></SelectContent></Select>
+  return <Select value={value} items={options} onValueChange={(v) => v !== null && onChange(v)} disabled={disabled}><SelectTrigger className="w-full min-w-0" aria-label={label}><SelectValue className="min-w-0 overflow-hidden" /></SelectTrigger><SelectContent alignItemWithTrigger={false}><SelectGroup>{options.map((option) => <SelectItem key={option.value} value={option.value} className="[&>div]:min-w-0 [&>div]:shrink [&>div]:whitespace-normal">{option.label}</SelectItem>)}</SelectGroup></SelectContent></Select>
 }
 
 export function StageHelp({ stage }: { stage: Stage }) {

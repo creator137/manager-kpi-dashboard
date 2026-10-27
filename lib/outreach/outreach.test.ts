@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from "vitest"
 import { mkdtemp, rm } from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
-import { applyCommand, commandSchema, summarizeOutreach, type Workspace } from "./model"
+import { applyCommand, commandSchema, STAGES, summarizeOutreach, type Workspace } from "./model"
 import { initialCatalog, initialWorkspace, mergeCatalog, parseCatalog } from "./catalog"
 import { FileOutreachRepository, mutateWorkspace } from "./repository"
 import { projectDescription, projectLinks } from "./project-info"
@@ -14,6 +14,40 @@ function workspace() { const w = initialWorkspace(); w.projects = w.projects.sli
 function qualify(w: Workspace) { return applyCommand(w, { type: "qualify", ids: w.projects.map((p) => p.id) }, "alexey", now, uuid) }
 
 describe("outreach catalog and workflow", () => {
+  it("extends the existing call stage without changing its stored identity", () => {
+    expect(STAGES.find((s) => s.id === "call")).toMatchObject({ label: "Звонок в офис + отправка на инфо" })
+    expect(STAGES.find((s) => s.id === "call")?.condition).toContain("отправка информации")
+  })
+
+  it("requires a rejection reason, keeps it in history and allows returning to work", () => {
+    const w = qualify(workspace())
+    const p = w.projects[0]
+    p.workflow.studyDescription = "Изучен проект и сроки"
+    const edit = { type: "edit", id: p.id, version: p.version, workflow: { ...p.workflow, outcome: "rejected", rejectionReason: "  " } } as const
+    expect(() => applyCommand(w, edit, "alexey", now, uuid)).toThrow("причину отказа")
+    const rejected = applyCommand(w, { ...edit, workflow: { ...edit.workflow, rejectionReason: "У клиента уже есть подрядчик" } }, "alexey", now, uuid)
+    const record = rejected.projects[0]
+    expect(record.events).toContainEqual(expect.objectContaining({ label: "Зафиксирован отказ", note: "У клиента уже есть подрядчик" }))
+    expect(() => applyCommand(rejected, { type: "stage", id: p.id, version: record.version, stage: "contacts" }, "alexey", now, uuid)).toThrow("верните ЖК в работу")
+    expect(() => applyCommand(rejected, { type: "activity", id: p.id, version: record.version, kind: "meeting_held", occurredAt: now, note: "Встреча", url: "" }, "alexey", now, uuid)).toThrow("верните ЖК в работу")
+    expect(() => applyCommand(rejected, { type: "edit", id: p.id, version: record.version, workflow: { ...record.workflow, stage: "call" } }, "alexey", now, uuid)).toThrow("верните ЖК в работу")
+    const refreshed = mergeCatalog(rejected, [p.catalog], now)
+    expect(refreshed.projects[0].workflow.rejectionReason).toBe("У клиента уже есть подрядчик")
+    const resumed = applyCommand(rejected, { type: "edit", id: p.id, version: record.version, workflow: { ...record.workflow, outcome: "working" } }, "alexey", now, uuid)
+    expect(resumed.projects[0].events).toContainEqual(expect.objectContaining({ label: "Статус изменён: В работе" }))
+    expect(resumed.projects[0].events).toContainEqual(expect.objectContaining({ label: "Зафиксирован отказ", note: "У клиента уже есть подрядчик" }))
+  })
+
+  it("records corrected rejection reasons without rewriting the previous reason", () => {
+    const w = workspace()
+    const p = w.projects[0]
+    p.workflow.outcome = "rejected"
+    p.workflow.rejectionReason = "Нет бюджета"
+    const updated = applyCommand(w, { type: "edit", id: p.id, version: p.version, workflow: { ...p.workflow, rejectionReason: "Неактуально до следующего года" } }, "alexey", now, uuid)
+    expect(updated.projects[0].events).toContainEqual(expect.objectContaining({ label: "Причина отказа изменена", note: "Неактуально до следующего года" }))
+    expect(p.workflow.rejectionReason).toBe("Нет бюджета")
+  })
+
   it("deduplicates the two Moynako names by the same building identities", () => {
     expect(initialCatalog).toHaveLength(46)
     expect(initialCatalog.find((p) => p.aliases.some((name) => name.includes("Мойнако Ривьера")))?.aliases).toHaveLength(2)
