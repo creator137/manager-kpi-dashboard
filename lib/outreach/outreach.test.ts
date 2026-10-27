@@ -5,6 +5,7 @@ import path from "node:path"
 import { applyCommand, commandSchema, summarizeOutreach, type Workspace } from "./model"
 import { initialCatalog, initialWorkspace, mergeCatalog, parseCatalog } from "./catalog"
 import { FileOutreachRepository, mutateWorkspace } from "./repository"
+import { projectDescription, projectLinks } from "./project-info"
 
 const now = "2026-10-26T10:00:00.000Z"
 let counter = 0
@@ -17,6 +18,26 @@ describe("outreach catalog and workflow", () => {
     expect(initialCatalog).toHaveLength(46)
     expect(initialCatalog.find((p) => p.aliases.some((name) => name.includes("Мойнако Ривьера")))?.aliases).toHaveLength(2)
     expect(initialCatalog.filter((p) => !p.buildingIds.length)).toHaveLength(3)
+  })
+
+  it("builds factual descriptions and preserves direct DOM.RF building links", () => {
+    const item = initialCatalog[0]
+    expect(projectDescription(item)).toContain("Класс жилья: комфорт")
+    expect(item.description).toBe("Корпусов: 8. Квартир: 248. Этажность до 9. Ввод последнего корпуса: 1 кв. 2026")
+    const links = projectLinks(item)
+    expect(links).toHaveLength(8)
+    expect(links[0]).toEqual({ href: "https://наш.дом.рф/сервисы/каталог-новостроек/объект/52602", label: "ДОМ.РФ · 52602" })
+    expect(projectDescription({ ...item, description: undefined })).toContain(item.developer)
+    expect(projectLinks({ ...item, links: ["javascript:alert(1)", "invalid", "https://example.com", "https://example.com"] })).toEqual([{ href: "https://example.com", label: "Сайт проекта" }])
+  })
+
+  it("keeps all source links when duplicate source rows are merged and handles missing descriptions", () => {
+    const header = ["Название ЖК / Проекта", "ID объектов (корпуса)", "Ссылки на корпуса"]
+    const items = parseCatalog([header, ["Один ЖК", "1", "https://example.com/1"], ["Другое имя", "1", "https://example.com/2"]], now)
+    expect(items).toHaveLength(1)
+    expect(items[0].links).toHaveLength(2)
+    expect(items[0].description).toBe("")
+    expect(projectDescription(items[0])).toContain("пока нет описания")
   })
 
   it("does not include unreviewed, inbound, event or active clients in cold-outreach statistics", () => {
@@ -32,6 +53,7 @@ describe("outreach catalog and workflow", () => {
   it("counts only explicit dated activities and does not invent a meeting when a proposal is sent", () => {
     let w = qualify(workspace())
     const p = w.projects[0]
+    p.workflow.studyDescription = "Изучены корпуса и сроки. Подготовлено предложение по визуализации."
     w = applyCommand(w, { type: "activity", id: p.id, version: p.version, kind: "proposal_sent", note: "Отправлено клиенту", occurredAt: now, url: "https://example.com/proposal" }, "alexey", now, uuid)
     expect(summarizeOutreach(w.projects, "2026-10")).toMatchObject({ total: 3, scheduled: 0, held: 0, proposals: 1 })
     expect(summarizeOutreach(w.projects, "2026-09").proposals).toBe(0)
@@ -43,6 +65,7 @@ describe("outreach catalog and workflow", () => {
     const w = qualify(workspace())
     const p = w.projects[0]
     p.workflow.contactName = "Иван Иванов"
+    p.workflow.studyDescription = "Менеджер изучил проект: крупный квартал с поэтапным вводом."
     p.workflow.manager = "Дарья Степанова"
     p.workflow.stage = "call"
     p.archivedAt = now
@@ -50,6 +73,22 @@ describe("outreach catalog and workflow", () => {
     expect(updated.projects).toHaveLength(3)
     expect(updated.projects[0]).toMatchObject({ id: p.id, archivedAt: now, workflow: p.workflow, events: p.events })
     expect(updated.projects[0].catalog.name).toBe("Обновлённое название")
+  })
+
+  it("requires manager-written study notes for every forward transition, including direct edits and activities", () => {
+    const w = qualify(workspace())
+    const p = w.projects[0]
+    const stage = { type: "stage", id: p.id, version: p.version, stage: "contacts" } as const
+    expect(() => applyCommand(w, stage, "alexey", now, uuid)).toThrow("описание ЖК")
+    expect(() => applyCommand(w, { type: "edit", id: p.id, version: p.version, workflow: { ...p.workflow, stage: "call", studyDescription: "  " } }, "alexey", now, uuid)).toThrow("описание ЖК")
+    expect(() => applyCommand(w, { type: "activity", id: p.id, version: p.version, kind: "meeting_scheduled", occurredAt: now, note: "Согласована встреча", url: "" }, "alexey", now, uuid)).toThrow("описание ЖК")
+    const description = "Изучены корпуса и сроки. Предложить виртуальный тур."
+    const updated = applyCommand(w, { type: "edit", id: p.id, version: p.version, workflow: { ...p.workflow, studyDescription: description, stage: "contacts" } }, "alexey", now, uuid)
+    const changed = updated.projects[0]
+    expect(changed.events).toContainEqual(expect.objectContaining({ label: "Изучение ЖК подтверждено", note: description }))
+    expect(changed.events).toContainEqual(expect.objectContaining({ label: "Описание ЖК обновлено", note: description }))
+    expect(() => applyCommand(updated, { type: "edit", id: p.id, version: changed.version, workflow: { ...changed.workflow, studyDescription: "" } }, "alexey", now, uuid)).toThrow("нельзя очистить")
+    expect(applyCommand(updated, { type: "edit", id: p.id, version: changed.version, workflow: { ...changed.workflow, studyDescription: "Уточнённое описание проекта" } }, "alexey", now, uuid).projects[0].workflow.studyDescription).toBe("Уточнённое описание проекта")
   })
 
   it("keeps an initially incomplete object's identity when the parser supplies building IDs", () => {

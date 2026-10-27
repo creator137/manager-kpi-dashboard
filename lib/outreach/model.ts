@@ -26,10 +26,11 @@ const link = z.union([z.literal(""), z.url().refine((v) => /^https?:\/\//i.test(
 export const catalogSchema = z.object({
   sourceKey: z.string().min(1), sourceTag: text, origin: z.enum(["parser", "manual"]),
   name: text.min(1, "Укажите название ЖК"), aliases: z.array(text), city: text, developer: text, group: text,
-  housingClass: text, priority: text, buildingIds: z.array(z.string()), links: z.array(link), syncedAt: z.string(),
+  housingClass: text, description: text.optional(), priority: text, buildingIds: z.array(z.string()), links: z.array(link), syncedAt: z.string(),
 })
 export type CatalogItem = z.infer<typeof catalogSchema>
 export const workflowSchema = z.object({
+  studyDescription: text.optional(),
   manager: z.string().refine((v) => v === "" || MANAGERS.includes(v), "Выберите менеджера из списка"),
   qualification: qualificationSchema, stage: stageSchema, outcome: z.enum(["working", "paused", "rejected"]),
   contactName: text, phone: text, email: z.union([z.literal(""), z.email("Проверьте email")]), office: text,
@@ -88,14 +89,21 @@ export function applyCommand(workspace: Workspace, command: OutreachCommand, act
   if (current.version !== command.version) throw new OutreachError("Карточка уже изменена другим пользователем. Обновите список и повторите действие.")
   if (current.archivedAt && command.type !== "restore") throw new OutreachError("ЖК находится в архиве")
   const project = { ...current, workflow: { ...current.workflow }, events: [...current.events], version: current.version + 1, updatedAt: now }
+  const requireStudy = (nextStage: Stage, description = current.workflow.studyDescription) => {
+    if (STAGES.findIndex((s) => s.id === nextStage) > STAGES.findIndex((s) => s.id === current.workflow.stage) && !description?.trim()) throw new OutreachError("Заполните и сохраните описание ЖК по итогам изучения перед переходом на следующий этап.")
+  }
   if (command.type === "edit") {
     if (["scheduled", "held", "proposal"].includes(command.workflow.stage) && command.workflow.stage !== current.workflow.stage) throw new OutreachError("Назначение встречи, проведение и отправку КП фиксируйте отдельным событием")
+    requireStudy(command.workflow.stage, command.workflow.studyDescription)
+    if (current.workflow.stage !== "study" && command.workflow.stage !== "study" && current.workflow.studyDescription?.trim() && !command.workflow.studyDescription?.trim()) throw new OutreachError("Описание изученного ЖК нельзя очистить после перехода к проработке.")
     project.workflow = command.workflow
+    if ((current.workflow.studyDescription ?? "") !== (command.workflow.studyDescription ?? "")) project.events.push(event("updated", "Описание ЖК обновлено", command.workflow.studyDescription || "Описание очищено"))
     project.events.push(event("updated", "Карточка обновлена", `Ответственный: ${command.workflow.manager || "не назначен"}. Источник: ${qualificationLabels[command.workflow.qualification]}. Статус: ${outcomeLabels[command.workflow.outcome]}.`))
   }
   if (command.type === "stage") {
     if (["scheduled", "held", "proposal"].includes(command.stage)) throw new OutreachError("Для этого этапа зафиксируйте событие с датой")
     if (!eligible(project)) throw new OutreachError("Сначала подтвердите самостоятельный отбор ЖК")
+    requireStudy(command.stage)
     project.workflow.stage = command.stage
     project.events.push(event("stage", `Этап: ${STAGES.find((s) => s.id === command.stage)?.label}`))
   }
@@ -103,10 +111,12 @@ export function applyCommand(workspace: Workspace, command: OutreachCommand, act
     if (!eligible(project) && command.kind !== "note") throw new OutreachError("Встречи и КП этого раздела учитываются только по самостоятельно отобранным ЖК")
     if (command.kind !== "meeting_scheduled" && new Date(command.occurredAt).getTime() > new Date(now).getTime() + 60_000) throw new OutreachError("Фактическое действие нельзя записать будущей датой")
     const nextStage = { meeting_scheduled: "scheduled", meeting_held: "held", proposal_sent: "proposal", note: project.workflow.stage } as const
+    requireStudy(nextStage[command.kind])
     if (STAGES.findIndex((s) => s.id === nextStage[command.kind]) > STAGES.findIndex((s) => s.id === project.workflow.stage)) project.workflow.stage = nextStage[command.kind]
     project.events.push(event(command.kind, activityLabels[command.kind], command.note, command.occurredAt, command.url))
   }
   if (command.type === "archive") { project.archivedAt = now; project.events.push(event("archived", "ЖК удалён из рабочего списка")) }
   if (command.type === "restore") { project.archivedAt = null; project.events.push(event("restored", "ЖК восстановлен")) }
+  if (current.workflow.stage === "study" && project.workflow.stage !== "study") project.events.push(event("stage", "Изучение ЖК подтверждено", project.workflow.studyDescription ?? ""))
   return { ...workspace, projects: workspace.projects.map((p) => p.id === project.id ? project : p) }
 }

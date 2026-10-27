@@ -17,13 +17,25 @@ export function parseCatalog(rows: unknown[][], syncedAt: string): CatalogItem[]
     if (!name) continue
     const buildingIds = [...new Set(value("ID объектов (корпуса)").split(/[,;\s]+/).filter((id) => /^\d+$/.test(id)))].sort()
     const sourceKey = createHash("sha256").update(buildingIds.length ? buildingIds.join(",") : normalize(name)).digest("hex").slice(0,24)
+    const links = value("Ссылки на корпуса").split(/[,\s]+/).filter((url) => /^https?:\/\//.test(url))
     const previous = result.get(sourceKey)
-    if (previous) { previous.aliases = [...new Set([...previous.aliases, name])]; continue }
+    if (previous) { previous.aliases = [...new Set([...previous.aliases, name])]; previous.links = [...new Set([...previous.links, ...links])]; continue }
+    const number = (columnName: string) => {
+      const raw = value(columnName)
+      const parsed = Number(raw.replace(/\s/g, "").replace(",", "."))
+      return raw && Number.isFinite(parsed) && parsed >= 0 ? new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 0 }).format(parsed) : ""
+    }
+    const buildings = number("Кол-во корпусов")
+    const apartments = number("Кол-во квартир всего")
+    const floors = number("Макс этажность")
+    const year = value("Год ввода (макс)")
+    const quarter = value("Квартал ввода (макс)")
+    const description = [value("Портрет"), buildings && `Корпусов: ${buildings}`, apartments && `Квартир: ${apartments}`, floors && `Этажность до ${floors}`, year && `Ввод последнего корпуса: ${quarter ? `${quarter} кв. ` : ""}${year}`].filter(Boolean).join(". ")
     result.set(sourceKey, {
       sourceKey, sourceTag: value("Тег сшивки"), origin: "parser", name, aliases: [name],
       city: value("Город/район"), developer: value("Застройщик(и)"), group: [...new Set(value("Группа-компаний").split(",").map((part) => part.replace(/^[\s\[\]'\"]+|[\s\[\]'\"]+$/g, "")).filter(Boolean))].join(" · "),
-      housingClass: value("Класс(ы) жилья"), priority: value("Приоритет"), buildingIds,
-      links: value("Ссылки на корпуса").split(/[,\s]+/).filter((url) => /^https?:\/\//.test(url)), syncedAt,
+      housingClass: value("Класс(ы) жилья"), description, priority: value("Приоритет"), buildingIds,
+      links, syncedAt,
     })
   }
   if (!result.size) throw new OutreachError("Источник вернул пустой список ЖК. Существующие записи сохранены.")
